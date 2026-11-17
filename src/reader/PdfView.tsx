@@ -20,7 +20,7 @@ export interface PdfViewProps {
 type Size = { w: number; h: number };
 
 /* ---------- tiny render-concurrency limiter ---------- */
-function makeLimiter(max: number) {
+export function makeLimiter(max: number) {
   let active = 0;
   const q: Array<() => void> = [];
   return {
@@ -40,7 +40,7 @@ function makeLimiter(max: number) {
 }
 
 /* ---------- viewport observers shared by every page slot ---------- */
-function makeRegistry(getRoot: () => Element | null) {
+export function makeRegistry(getRoot: () => Element | null) {
   const near = new Map<Element, (v: boolean) => void>();
   const vis = new Map<Element, (px: number) => void>();
   let nearIO: IntersectionObserver | undefined;
@@ -69,7 +69,7 @@ function makeRegistry(getRoot: () => Element | null) {
   };
 }
 
-type Registry = ReturnType<typeof makeRegistry>;
+export type Registry = ReturnType<typeof makeRegistry>;
 const limiter = makeLimiter(2);
 
 /* ---------- a single page ---------- */

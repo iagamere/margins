@@ -17,6 +17,8 @@ const STACKS: Record<Exclude<ReadFont, 'auto' | 'original'>, string> = {
   literata: "'Literata', 'Source Serif 4', Georgia, 'Times New Roman', serif",
   sourceSerif: "'Source Serif 4', 'Literata', Georgia, 'Times New Roman', serif",
   naskh: "'Noto Naskh Arabic', 'Literata', 'Traditional Arabic', serif",
+  amiri: "'Amiri', 'Noto Naskh Arabic', 'Traditional Arabic', serif",
+  cairo: "'Cairo', 'IBM Plex Sans Arabic', system-ui, sans-serif",
   plexArabic: "'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif",
   inter: "'Inter', 'IBM Plex Sans Arabic', system-ui, sans-serif",
 };
@@ -24,7 +26,7 @@ const STACKS: Record<Exclude<ReadFont, 'auto' | 'original'>, string> = {
 export function resolveFont(font: ReadFont, rtlBook: boolean): { stack: string | null; arabicScale: number } {
   if (font === 'original') return { stack: null, arabicScale: 1 };
   const key = font === 'auto' ? (rtlBook ? 'naskh' : 'literata') : font;
-  const arabicFont = key === 'naskh' || key === 'plexArabic';
+  const arabicFont = key === 'naskh' || key === 'plexArabic' || key === 'amiri' || key === 'cairo';
   return { stack: STACKS[key], arabicScale: arabicFont && rtlBook ? 1.1 : 1 };
 }
 
@@ -39,6 +41,7 @@ export function buildEpubCss(s: Settings, theme: ThemeName, rtlBook: boolean): s
       : s.textAlign === 'justify'
         ? 'text-align: justify !important; text-justify: inter-word;'
         : 'text-align: start !important;';
+  const lh = rtlBook ? Math.round(s.lineHeight * 1.12 * 100) / 100 : s.lineHeight;
   const family = stack ? `font-family: ${stack} !important;` : '';
   const textEls =
     'body, p, li, blockquote, dd, dt, td, th, div, span, em, strong, i, b, small, cite, q, h1, h2, h3, h4, h5, h6, figcaption, caption, label';
@@ -46,9 +49,9 @@ export function buildEpubCss(s: Settings, theme: ThemeName, rtlBook: boolean): s
 html { color-scheme: ${theme === 'dark' ? 'dark' : 'light'}; -webkit-text-size-adjust: 100%; }
 ${rtlBook ? ':where(html:not([dir])) { direction: rtl; }' : ''}
 html, body { background: transparent !important; color: ${c.fg} !important; }
-body { font-size: ${size}px !important; line-height: ${s.lineHeight} !important; overflow-wrap: break-word; word-wrap: break-word; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+body { font-size: ${size}px !important; line-height: ${lh} !important; overflow-wrap: break-word; word-wrap: break-word; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
 ${textEls} { color: ${c.fg} !important; background-color: transparent !important; ${family} }
-p, li, blockquote, dd, dt { font-size: 1em !important; line-height: ${s.lineHeight} !important; ${align} }
+p, li, blockquote, dd, dt { font-size: 1em !important; line-height: ${lh} !important; ${align} }
 p { margin-top: 0 !important; margin-bottom: ${s.paragraphSpacing}em !important; orphans: 2; widows: 2; }
 h1, h2, h3, h4, h5, h6 { line-height: 1.3 !important; text-align: start; }
 a, a * { color: ${c.accent} !important; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
@@ -57,7 +60,13 @@ img, svg, video { max-width: 100%; }
 table { border-color: ${c.fg2} !important; }
 hr { border-color: ${c.fg2} !important; opacity: 0.4; }
 ::selection { background: ${c.accent}55; }
-`;
+${
+  rtlBook
+    ? `/* Arabic: letter-spacing breaks letter joining; keep shaping features and diacritics intact */
+*, *::before, *::after { letter-spacing: normal !important; word-spacing: normal !important; font-variant-ligatures: normal !important; font-feature-settings: normal !important; font-kerning: normal !important; text-transform: none !important; hyphens: none !important; }
+`
+    : ''
+}`;
 }
 
 /** Copies the @font-face rules of the host document so book iframes can use the bundled fonts offline. */

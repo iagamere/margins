@@ -403,25 +403,39 @@ export function PdfViewControls({ api }: { api: ReaderApi | null }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="group">
         <div className="setting">
-          <span className="label">{t('typo.mode')}</span>
-          <div className="seg" role="group" aria-label={t('typo.mode')}>
-            <button aria-pressed={s.readingMode === 'paged'} onClick={() => set({ readingMode: 'paged' })}>{t('typo.paged')}</button>
-            <button aria-pressed={s.readingMode === 'scroll'} onClick={() => set({ readingMode: 'scroll' })}>{t('typo.scroll')}</button>
+          <span className="label">{t('pdf.style')}</span>
+          <div className="seg" role="group" aria-label={t('pdf.style')}>
+            <button aria-pressed={!s.pdfReflow} onClick={() => set({ pdfReflow: false })}>{t('pdf.styleOriginal')}</button>
+            <button aria-pressed={s.pdfReflow} onClick={() => set({ pdfReflow: true })}>{t('pdf.styleReflow')}</button>
           </div>
+          {s.pdfReflow && (
+            <div className="notice"><Info size={16} aria-hidden="true" /><span>{t('pdf.reflowNote')}</span></div>
+          )}
         </div>
-        <div className="setting">
-          <span className="label">{t('pdf.zoom')}</span>
-          <div className="row">
-            <button className="btn" style={{ flex: 1 }} onClick={() => api?.zoomBy?.(1 / 1.25)} aria-label={t('pdf.zoomOut')}><Minus size={20} /></button>
-            <button className="btn" style={{ flex: 1 }} onClick={() => api?.zoomBy?.(1.25)} aria-label={t('pdf.zoomIn')}><Plus size={20} /></button>
-          </div>
-          <div className="row">
-            <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => api?.setFit?.('width')}><Maximize2 size={16} aria-hidden="true" />{t('pdf.fitWidth')}</button>
-            <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => api?.setFit?.('page')}><Maximize2 size={16} aria-hidden="true" />{t('pdf.fitPage')}</button>
-          </div>
-        </div>
+        {!s.pdfReflow && (
+          <>
+            <div className="setting">
+              <span className="label">{t('typo.mode')}</span>
+              <div className="seg" role="group" aria-label={t('typo.mode')}>
+                <button aria-pressed={s.readingMode === 'paged'} onClick={() => set({ readingMode: 'paged' })}>{t('typo.paged')}</button>
+                <button aria-pressed={s.readingMode === 'scroll'} onClick={() => set({ readingMode: 'scroll' })}>{t('typo.scroll')}</button>
+              </div>
+            </div>
+            <div className="setting">
+              <span className="label">{t('pdf.zoom')}</span>
+              <div className="row">
+                <button className="btn" style={{ flex: 1 }} onClick={() => api?.zoomBy?.(1 / 1.25)} aria-label={t('pdf.zoomOut')}><Minus size={20} /></button>
+                <button className="btn" style={{ flex: 1 }} onClick={() => api?.zoomBy?.(1.25)} aria-label={t('pdf.zoomIn')}><Plus size={20} /></button>
+              </div>
+              <div className="row">
+                <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => api?.setFit?.('width')}><Maximize2 size={16} aria-hidden="true" />{t('pdf.fitWidth')}</button>
+                <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => api?.setFit?.('page')}><Maximize2 size={16} aria-hidden="true" />{t('pdf.fitPage')}</button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
-      <TypographyControls format="pdf" />
+      {s.pdfReflow ? <TypographyControls showMode={false} reflow /> : <TypographyControls format="pdf" />}
     </div>
   );
 }

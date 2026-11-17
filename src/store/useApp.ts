@@ -80,6 +80,8 @@ export const useApp = create<AppState>((set, get) => ({
       margin: d.margin,
       maxWidth: d.maxWidth,
       textAlign: d.textAlign,
+      textDir: d.textDir,
+      textWeight: d.textWeight,
       readerTheme: d.readerTheme,
       pdfAdaptTheme: d.pdfAdaptTheme,
     };

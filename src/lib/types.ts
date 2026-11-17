@@ -4,7 +4,9 @@ export type ThemeName = 'light' | 'dark' | 'sepia';
 export type AppTheme = 'system' | ThemeName;
 export type ReaderTheme = 'auto' | ThemeName;
 export type ReadingMode = 'scroll' | 'paged';
-export type ReadFont = 'auto' | 'original' | 'literata' | 'sourceSerif' | 'naskh' | 'plexArabic' | 'inter';
+export type ReadFont = 'auto' | 'original' | 'literata' | 'sourceSerif' | 'naskh' | 'amiri' | 'plexArabic' | 'cairo' | 'inter';
+export type TextDir = 'auto' | 'rtl' | 'ltr';
+export type TextWeight = 'regular' | 'bold';
 export type TextAlign = 'original' | 'start' | 'justify';
 export type HighlightColor = 'sage' | 'gold' | 'rose' | 'sky';
 export type LibraryFilter = 'all' | 'reading' | 'completed' | 'recent';
@@ -29,6 +31,8 @@ export interface BookRecord {
   language?: string;
   rtl?: boolean;
   pages?: number;
+  /** PDF: this book is read in text-reflow mode */
+  pdfReflow?: boolean;
 }
 
 export interface AnnotationRecord {
@@ -65,7 +69,13 @@ export interface Settings {
   /** px, maximum width of the reading column */
   maxWidth: number;
   textAlign: TextAlign;
+  /** PDF text reflow only: force the paragraph direction */
+  textDir: TextDir;
+  /** PDF text reflow only */
+  textWeight: TextWeight;
   pdfAdaptTheme: boolean;
+  /** PDF: show extracted text re-flowed to the screen instead of the original pages */
+  pdfReflow: boolean;
   libraryView: 'grid' | 'list';
   librarySort: LibrarySort;
 }

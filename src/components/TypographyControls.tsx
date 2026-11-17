@@ -5,7 +5,7 @@ import { DEFAULT_READING } from '../lib/settings';
 import { THEME_COLORS, resolveFont } from '../lib/readerCss';
 import type { ReadFont, ReaderTheme, ThemeName } from '../lib/types';
 
-const FONTS: ReadFont[] = ['auto', 'literata', 'sourceSerif', 'naskh', 'plexArabic', 'inter', 'original'];
+const FONTS: ReadFont[] = ['auto', 'literata', 'sourceSerif', 'naskh', 'amiri', 'plexArabic', 'cairo', 'inter', 'original'];
 
 function Stepper({ label, value, min, max, step, onChange, format }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; format: (v: number) => string }) {
   return (
@@ -17,7 +17,7 @@ function Stepper({ label, value, min, max, step, onChange, format }: { label: st
 }
 
 /** Shared by the Settings screen and the in-reader panel. `scope: 'reader'` hides the app-level default-mode wording. */
-export function TypographyControls({ showMode = true, format = 'epub', preview = true }: { showMode?: boolean; format?: 'epub' | 'pdf'; preview?: boolean }) {
+export function TypographyControls({ showMode = true, format = 'epub', preview = true, reflow = false }: { showMode?: boolean; format?: 'epub' | 'pdf'; preview?: boolean; reflow?: boolean }) {
   const { t, n } = useT();
   const s = useApp((st) => st.settings);
   const set = useApp((st) => st.setSettings);
@@ -50,7 +50,7 @@ export function TypographyControls({ showMode = true, format = 'epub', preview =
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {preview && (
-        <div className="typo-preview" style={{ background: rc.bg, color: rc.fg, fontFamily: stack ?? 'var(--font-read)', fontSize: s.fontSize, lineHeight: s.lineHeight, textAlign: s.textAlign === 'justify' ? 'justify' : 'start', paddingInline: Math.min(s.margin, 28) }} dir="auto">
+        <div className="typo-preview" style={{ background: rc.bg, color: rc.fg, fontFamily: stack ?? 'var(--font-read)', fontSize: s.fontSize, lineHeight: s.lineHeight, fontWeight: reflow && s.textWeight === 'bold' ? 600 : 400, textAlign: s.textAlign === 'justify' ? 'justify' : 'start', paddingInline: Math.min(s.margin, 28) }} dir={reflow && s.textDir !== 'auto' ? s.textDir : 'auto'}>
           {t('typo.sample')}
         </div>
       )}
@@ -76,15 +76,41 @@ export function TypographyControls({ showMode = true, format = 'epub', preview =
             ))}
           </div>
         </div>
-        <Stepper label={t('typo.size')} value={s.fontSize} min={13} max={34} step={1} onChange={(v) => set({ fontSize: v })} format={(v) => `${n(v)}`} />
+        <div className="setting">
+          <div className="row-between"><span className="label">{t('typo.size')}</span><span className="muted" style={{ fontSize: 14 }}>{n(s.fontSize)}</span></div>
+          <div className="stepper">
+            <button className="btn btn-sm" style={{ minWidth: 46, padding: 0 }} onClick={() => set({ fontSize: Math.max(13, s.fontSize - 1) })} aria-label={t('typo.smaller')}><span style={{ fontFamily: 'var(--font-read)', fontSize: 15 }}>A</span></button>
+            <input className="range" type="range" min={13} max={34} step={1} value={s.fontSize} aria-label={t('typo.size')} onChange={(e) => set({ fontSize: Number(e.target.value) })} />
+            <button className="btn btn-sm" style={{ minWidth: 46, padding: 0 }} onClick={() => set({ fontSize: Math.min(34, s.fontSize + 1) })} aria-label={t('typo.larger')}><span style={{ fontFamily: 'var(--font-read)', fontSize: 22 }}>A</span></button>
+          </div>
+        </div>
         <Stepper label={t('typo.lineHeight')} value={s.lineHeight} min={1.2} max={2.3} step={0.05} onChange={(v) => set({ lineHeight: Math.round(v * 100) / 100 })} format={(v) => v.toFixed(2)} />
         <Stepper label={t('typo.paragraph')} value={s.paragraphSpacing} min={0} max={2} step={0.1} onChange={(v) => set({ paragraphSpacing: Math.round(v * 10) / 10 })} format={(v) => `${v.toFixed(1)}em`} />
         <Stepper label={t('typo.margin')} value={s.margin} min={0} max={64} step={2} onChange={(v) => set({ margin: v })} format={(v) => `${n(v)}`} />
         <Stepper label={t('typo.width')} value={s.maxWidth} min={420} max={1100} step={20} onChange={(v) => set({ maxWidth: v })} format={(v) => `${n(v)}`} />
+        {reflow && (
+          <>
+            <div className="setting">
+              <span className="label">{t('typo.dir')}</span>
+              <div className="seg" role="group" aria-label={t('typo.dir')}>
+                <button aria-pressed={s.textDir === 'auto'} onClick={() => set({ textDir: 'auto' })}>{t('typo.dirAuto')}</button>
+                <button aria-pressed={s.textDir === 'rtl'} onClick={() => set({ textDir: 'rtl' })}>{t('typo.dirRtl')}</button>
+                <button aria-pressed={s.textDir === 'ltr'} onClick={() => set({ textDir: 'ltr' })}>{t('typo.dirLtr')}</button>
+              </div>
+            </div>
+            <div className="setting">
+              <span className="label">{t('typo.weight')}</span>
+              <div className="seg" role="group" aria-label={t('typo.weight')}>
+                <button aria-pressed={s.textWeight === 'regular'} onClick={() => set({ textWeight: 'regular' })}>{t('typo.weightRegular')}</button>
+                <button aria-pressed={s.textWeight === 'bold'} onClick={() => set({ textWeight: 'bold' })} style={{ fontWeight: 700 }}>{t('typo.weightBold')}</button>
+              </div>
+            </div>
+          </>
+        )}
         <div className="setting">
           <span className="label">{t('typo.align')}</span>
           <div className="seg" role="group" aria-label={t('typo.align')}>
-            <button aria-pressed={s.textAlign === 'original'} onClick={() => set({ textAlign: 'original' })}>{t('align.original')}</button>
+            <button aria-pressed={s.textAlign === 'original'} onClick={() => set({ textAlign: 'original' })}>{t(reflow ? 'align.auto' : 'align.original')}</button>
             <button aria-pressed={s.textAlign === 'start'} onClick={() => set({ textAlign: 'start' })}><AlignLeft className="flip" size={17} aria-hidden="true" />{t('align.start')}</button>
             <button aria-pressed={s.textAlign === 'justify'} onClick={() => set({ textAlign: 'justify' })}><AlignJustify size={17} aria-hidden="true" />{t('align.justify')}</button>
           </div>

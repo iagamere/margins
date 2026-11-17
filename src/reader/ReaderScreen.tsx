@@ -13,6 +13,7 @@ import {
   SkipForward,
   StickyNote,
   Type,
+  WrapText,
   X,
 } from 'lucide-react';
 import { useApp } from '../store/useApp';
@@ -29,6 +30,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { TypographyControls } from '../components/TypographyControls';
 import { EpubView, type EpubSelection } from './EpubView';
 import { PdfView } from './PdfView';
+import { ReflowView } from './ReflowView';
 import { AnnotationsPanel, NoteDialog, PdfViewControls, SearchPanel, ThumbsPanel, TocList, useBookSearch } from './panels';
 
 type Panel = null | 'toc' | 'search' | 'notes' | 'typo';
@@ -42,6 +44,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const navigate = useApp((s) => s.navigate);
   const back = useApp((s) => s.back);
   const toast = useApp((s) => s.toast);
+  const setSettings = useApp((s) => s.setSettings);
 
   const rtheme: ThemeName = settings.readerTheme === 'auto' ? resolved : settings.readerTheme;
 
@@ -76,6 +79,7 @@ export function ReaderScreen({ id }: { id: string }) {
         const blob = await getFile(id);
         if (!blob) throw new Error('missing');
         const buf = await blob.arrayBuffer();
+        if (!buf.byteLength) throw new Error('empty');
         const ann = await getAnnotations(id);
         if (!alive) return;
         setAnnotations(ann);
@@ -90,6 +94,21 @@ export function ReaderScreen({ id }: { id: string }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  /* ---------- per-book PDF display style (original layout vs text reflow) ---------- */
+  const prefApplied = useRef(false);
+  useEffect(() => {
+    if (!book || book.format !== 'pdf') return;
+    if (!prefApplied.current) {
+      prefApplied.current = true;
+      if (book.pdfReflow !== undefined && book.pdfReflow !== settings.pdfReflow) {
+        setSettings({ pdfReflow: book.pdfReflow });
+        return;
+      }
+    }
+    if (book.pdfReflow !== settings.pdfReflow) updateBook(id, { pdfReflow: settings.pdfReflow });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.pdfReflow, book?.id]);
 
   /* ---------- progress persistence ---------- */
   const persist = useMemo(
@@ -329,6 +348,9 @@ export function ReaderScreen({ id }: { id: string }) {
   const footRight = format === 'epub' ? `${n(Math.round(pct * 100))}%` : total ? `${n(pos?.page ?? 1)} / ${n(total)}` : '';
   const isBookmarked = bookmarksHere.length > 0;
   const rtlUi = lang === 'ar';
+  useEffect(() => {
+    if (format === 'pdf') setInfo(null);
+  }, [settings.pdfReflow, format]);
 
   const openPanel = (p: Panel) => () => setPanel(p);
   const onReady = useCallback((i: ReaderReadyInfo) => setInfo(i), []);
@@ -374,8 +396,11 @@ export function ReaderScreen({ id }: { id: string }) {
             registerClearSelection={registerClear}
           />
         )}
-        {book && data && format === 'pdf' && (
-          <PdfView bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onExternalLink={setExtUrl} onError={onError} />
+        {book && data && format === 'pdf' && !settings.pdfReflow && (
+          <PdfView key="orig" bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={posRef.current?.location ?? book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onExternalLink={setExtUrl} onError={onError} />
+        )}
+        {book && data && format === 'pdf' && settings.pdfReflow && (
+          <ReflowView key="reflow" bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={posRef.current?.location ?? book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onExternalLink={setExtUrl} onError={onError} />
         )}
         {!data && (
           <div className="reader-state">
@@ -407,6 +432,20 @@ export function ReaderScreen({ id }: { id: string }) {
           <b className="clamp1">{title}</b>
           {pos?.chapter && format === 'epub' && <small className="clamp1">{pos.chapter}</small>}
         </div>
+        {format === 'pdf' && (
+          <button
+            className="icon-btn"
+            onClick={() => {
+              persist.flush();
+              setSettings({ pdfReflow: !settings.pdfReflow });
+            }}
+            aria-pressed={settings.pdfReflow}
+            aria-label={t('pdf.toggleReflow')}
+            tabIndex={showBars ? 0 : -1}
+          >
+            <WrapText size={21} />
+          </button>
+        )}
         {canFs && (
           <button className="icon-btn" onClick={toggleFs} aria-label={fs ? t('reader.exitFullscreen') : t('reader.fullscreen')} tabIndex={showBars ? 0 : -1}>
             {fs ? <Minimize size={20} /> : <Expand size={20} />}

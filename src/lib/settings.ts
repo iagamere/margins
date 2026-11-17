@@ -16,6 +16,8 @@ export const DEFAULT_READING = {
   margin: 14,
   maxWidth: 720,
   textAlign: 'original',
+  textDir: 'auto',
+  textWeight: 'regular',
   readerTheme: 'auto',
   pdfAdaptTheme: false,
 } as const satisfies Partial<Settings>;
@@ -24,6 +26,7 @@ export function defaultSettings(): Settings {
   return {
     lang: detectLang(),
     theme: 'system',
+    pdfReflow: false,
     libraryView: 'grid',
     librarySort: 'opened',
     ...DEFAULT_READING,

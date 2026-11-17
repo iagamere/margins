@@ -108,3 +108,24 @@
 .sel-dock .sep { width: 1px; height: 26px; background: var(--border); margin-inline: 4px; }
 
 .pdf-page.sepia-adapt canvas { filter: sepia(0.35) brightness(0.96) contrast(0.96); }
+
+/* ---------- PDF text reflow ---------- */
+.rf-scroller { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; background: var(--bg); color: var(--fg); overscroll-behavior: contain; }
+.rf-col { font-weight: var(--rf-weight, 400); margin-inline: auto; padding-top: calc(var(--safe-t) + 28px); padding-bottom: calc(var(--safe-b) + 90px); font-family: var(--rf-family); font-size: var(--rf-size); line-height: var(--rf-lh); }
+.rf-page { position: relative; }
+.rf-page p, .rf-page h3 { margin: 0 0 var(--rf-gap); text-align: var(--rf-align); overflow-wrap: break-word; hyphens: auto; }
+.rf-page p.cont { margin-top: calc(-1 * var(--rf-gap) + 0.15em); }
+.rf-page p.ar, .rf-page h3.ar { font-size: 1.1em; line-height: calc(var(--rf-lh) * 1.12); hyphens: none; letter-spacing: normal; word-spacing: normal; font-variant-ligatures: normal; font-feature-settings: normal; text-align: var(--rf-align); }
+.rf-page h3 { font-size: 1.25em; line-height: 1.35; font-weight: 600; margin: 1.1em 0 0.55em; text-align: start; }
+.rf-marker { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 1.6em 0 0.9em; font-family: var(--font-ui); font-size: 12px; color: var(--fg2); letter-spacing: 0.04em; }
+.rf-marker::before { content: ''; flex: 0 0 18px; height: 1px; background: var(--border); order: 0; }
+.rf-marker span { order: 1; white-space: nowrap; }
+.rf-marker::after { content: ''; flex: 1; height: 1px; background: var(--border); order: 2; }
+.rf-orig-btn { order: 3; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border-radius: 999px; font-size: 12px; color: var(--fg2); border: 1px solid var(--border); background: transparent; }
+.rf-orig-btn[aria-pressed='true'] { color: var(--accent-ink); border-color: var(--accent); }
+.rf-loading { display: flex; justify-content: center; padding: 40px 0; }
+.rf-note { font-family: var(--font-ui); font-size: 13px; margin: 0 0 10px; }
+.rf-orig canvas { width: 100%; height: auto; display: block; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); background: #fff; }
+.rf-orig.dark-adapt canvas { filter: invert(0.9) hue-rotate(180deg) brightness(0.95); }
+.rf-orig.sepia-adapt canvas { filter: sepia(0.35) brightness(0.96) contrast(0.96); }
+.rf-page mark { background: color-mix(in srgb, var(--accent2) 45%, transparent); color: inherit; border-radius: 2px; }

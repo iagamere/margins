@@ -138,9 +138,13 @@ export async function importFile(file: File): Promise<ImportResult> {
     const existing = await findBookByHash(hash);
     if (existing) return { status: 'duplicate', book: existing };
 
+    // Build the stored copy BEFORE parsing: PDF.js transfers (detaches) the buffer it is given,
+    // which would otherwise leave us saving an empty file.
+    const stored = new Blob([buf.slice(0)], { type: format === 'pdf' ? 'application/pdf' : 'application/epub+zip' });
+
     let meta: { title?: string; author?: string; cover?: Blob; language?: string; rtl?: boolean; pages?: number };
     try {
-      meta = format === 'epub' ? await readEpub(buf) : await readPdf(buf);
+      meta = format === 'epub' ? await readEpub(buf.slice(0)) : await readPdf(buf.slice(0));
     } catch (e) {
       log('parse failed', e);
       if (format === 'pdf') {
@@ -165,8 +169,6 @@ export async function importFile(file: File): Promise<ImportResult> {
       rtl: meta.rtl,
       pages: meta.pages,
     };
-    // Store a real Blob (not the File handle) so the data survives independently of the picker.
-    const stored = new Blob([buf], { type: format === 'pdf' ? 'application/pdf' : 'application/epub+zip' });
     await addBook(book, stored);
     return { status: 'added', book };
   } catch (e) {
