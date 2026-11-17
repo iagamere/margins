@@ -1,0 +1,156 @@
+export type BookFormat = 'epub' | 'pdf';
+export type Lang = 'ar' | 'fr' | 'en';
+export type ThemeName = 'light' | 'dark' | 'sepia';
+export type AppTheme = 'system' | ThemeName;
+export type ReaderTheme = 'auto' | ThemeName;
+export type ReadingMode = 'scroll' | 'paged';
+export type ReadFont = 'auto' | 'original' | 'literata' | 'sourceSerif' | 'naskh' | 'plexArabic' | 'inter';
+export type TextAlign = 'original' | 'start' | 'justify';
+export type HighlightColor = 'sage' | 'gold' | 'rose' | 'sky';
+export type LibraryFilter = 'all' | 'reading' | 'completed' | 'recent';
+export type LibrarySort = 'opened' | 'added' | 'title' | 'author' | 'progress';
+
+export interface BookRecord {
+  id: string;
+  hash: string;
+  format: BookFormat;
+  title: string;
+  author?: string;
+  fileName: string;
+  size: number;
+  addedAt: number;
+  lastOpenedAt?: number;
+  /** 0..1 */
+  percentage: number;
+  /** EPUB: CFI string. PDF: "p:<page>:<offset 0..1>" */
+  location?: string;
+  finished: boolean;
+  cover?: Blob;
+  language?: string;
+  rtl?: boolean;
+  pages?: number;
+}
+
+export interface AnnotationRecord {
+  id: string;
+  bookId: string;
+  type: 'bookmark' | 'highlight';
+  /** EPUB: CFI of the position. PDF: "p:<page>:0" */
+  location: string;
+  /** EPUB highlights only */
+  cfiRange?: string;
+  text?: string;
+  note?: string;
+  color?: HighlightColor;
+  chapter?: string;
+  page?: number;
+  percentage: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Settings {
+  lang: Lang;
+  theme: AppTheme;
+  readerTheme: ReaderTheme;
+  readingMode: ReadingMode;
+  font: ReadFont;
+  /** px */
+  fontSize: number;
+  lineHeight: number;
+  /** em */
+  paragraphSpacing: number;
+  /** px, side margins inside the reading area */
+  margin: number;
+  /** px, maximum width of the reading column */
+  maxWidth: number;
+  textAlign: TextAlign;
+  pdfAdaptTheme: boolean;
+  libraryView: 'grid' | 'list';
+  librarySort: LibrarySort;
+}
+
+export type Route =
+  | { name: 'library' }
+  | { name: 'continue' }
+  | { name: 'settings' }
+  | { name: 'details'; id: string }
+  | { name: 'reader'; id: string };
+
+export interface TocItem {
+  id: string;
+  label: string;
+  /** EPUB */
+  href?: string;
+  /** PDF outline destination (unresolved) */
+  dest?: unknown;
+  children: TocItem[];
+}
+
+export interface ReaderPosition {
+  location: string;
+  percentage: number;
+  chapter?: string;
+  /** EPUB: range of the visible content */
+  start?: string;
+  end?: string;
+  /** PDF */
+  page?: number;
+  total?: number;
+  atEnd?: boolean;
+  excerpt?: string;
+}
+
+export interface SearchHit {
+  id: string;
+  location: string;
+  label?: string;
+  excerpt: string;
+}
+
+export interface SearchOutcome {
+  /** false when a PDF has no text layer at all */
+  hasText: boolean;
+}
+
+export interface ReaderApi {
+  next(): void;
+  prev(): void;
+  nextSection(): void;
+  prevSection(): void;
+  goToLocation(loc: string): void;
+  goToToc(item: TocItem): void;
+  goToPercent(p: number): void;
+  search(query: string, onHit: (h: SearchHit) => void, cancel: { cancelled: boolean }): Promise<SearchOutcome>;
+  goToHit(hit: SearchHit): void;
+  /** PDF only */
+  goToPage?(page: number): void;
+  zoomBy?(factor: number): void;
+  setFit?(mode: 'width' | 'page'): void;
+}
+
+export interface ReaderReadyInfo {
+  toc: TocItem[];
+  api: ReaderApi;
+  pdfDoc?: unknown;
+  numPages?: number;
+}
+
+export type ErrorCode =
+  | 'unsupported'
+  | 'invalid'
+  | 'corruptEpub'
+  | 'corruptPdf'
+  | 'passwordPdf'
+  | 'quota'
+  | 'importFailed'
+  | 'restoreFailed'
+  | 'storageUnavailable';
+
+export class AppError extends Error {
+  code: ErrorCode;
+  constructor(code: ErrorCode, message?: string) {
+    super(message ?? code);
+    this.code = code;
+  }
+}

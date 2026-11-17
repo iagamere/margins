@@ -1,0 +1,15 @@
+{
+  "appId": "app.margins.reader",
+  "appName": "Margins",
+  "webDir": "dist",
+  "backgroundColor": "#F6F4EF",
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css"
+    }
+  }
+}
