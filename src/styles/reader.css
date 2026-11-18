@@ -135,3 +135,10 @@
 .rf-orig.dark-adapt canvas { filter: invert(0.9) hue-rotate(180deg) brightness(0.95); }
 .rf-orig.sepia-adapt canvas { filter: sepia(0.35) brightness(0.96) contrast(0.96); }
 .rf-page mark { background: color-mix(in srgb, var(--accent2) 45%, transparent); color: inherit; border-radius: 2px; }
+
+/* bookmark dots on the progress line */
+.mark-dots { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.mark-dots i { position: absolute; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--mark); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg) 90%, transparent); animation: dotIn 260ms var(--ease) both; }
+.mark-dots i.word { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 2px; transform: rotate(45deg); }
+@keyframes dotIn { from { opacity: 0; scale: 0.2; } }
+.sel-dock .act.mark svg { color: var(--mark); }

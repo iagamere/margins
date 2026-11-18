@@ -8,6 +8,7 @@ import { resolveFont } from '../lib/readerCss';
 import type { ErrorCode, ReaderApi, ReaderPosition, ReaderReadyInfo, SearchHit, Settings, ThemeName } from '../lib/types';
 import { clamp, throttle } from '../lib/utils';
 import { makeLimiter, makeRegistry, type Registry } from './PdfView';
+import type { EpubSelection } from './EpubView';
 
 export interface ReflowViewProps {
   bookId: string;
@@ -18,6 +19,8 @@ export interface ReflowViewProps {
   onReady(info: ReaderReadyInfo): void;
   onPosition(p: ReaderPosition): void;
   onToggleUi(): void;
+  onSelect?(sel: EpubSelection | null): void;
+  registerClearSelection?(fn: () => void): void;
   onExternalLink(url: string): void;
   onError(code: ErrorCode): void;
 }
@@ -193,12 +196,52 @@ const PageBlock = memo(function PageBlock(p: BlockProps) {
 });
 
 export function ReflowView(props: ReflowViewProps) {
+  const selTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { t } = useT();
   const { settings, theme } = props;
   const P = useRef(props);
   P.current = props;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+
+  /* ----- text selection → "bookmark this passage" dock ----- */
+  useEffect(() => {
+    P.current.registerClearSelection?.(() => {
+      try {
+        window.getSelection()?.removeAllRanges();
+      } catch {
+        /* ignore */
+      }
+    });
+    const onSel = () => {
+      clearTimeout(selTimer.current);
+      selTimer.current = setTimeout(() => {
+        const sc = scrollerRef.current;
+        const sel = window.getSelection();
+        const text = sel?.toString().replace(/\s+/g, ' ').trim() ?? '';
+        if (!sc || !sel || sel.rangeCount === 0 || sel.isCollapsed || !text || !sc.contains(sel.anchorNode)) {
+          P.current.onSelect?.(null);
+          return;
+        }
+        const range = sel.getRangeAt(0);
+        const el = (range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement)?.closest<HTMLElement>('section[data-page]');
+        if (!el) {
+          P.current.onSelect?.(null);
+          return;
+        }
+        const page = Number(el.dataset.page);
+        const r = el.getBoundingClientRect();
+        const rr = range.getBoundingClientRect();
+        const offset = clamp((rr.top - r.top) / Math.max(1, r.height), 0, 0.98);
+        P.current.onSelect?.({ cfiRange: '', text, page, offset });
+      }, 220);
+    };
+    document.addEventListener('selectionchange', onSel);
+    return () => {
+      document.removeEventListener('selectionchange', onSel);
+      clearTimeout(selTimer.current);
+    };
+  }, []);
   const [opened, setOpened] = useState<{ doc: any; n: number } | null>(null);
   const [query, setQuery] = useState('');
   const registry = useMemo(() => makeRegistry(() => scrollerRef.current), []);

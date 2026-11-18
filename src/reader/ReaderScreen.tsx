@@ -254,6 +254,34 @@ export function ReaderScreen({ id }: { id: string }) {
     setSel(null);
     return a;
   };
+  const bookmarkSel = async () => {
+    if (!sel) return;
+    const now = Date.now();
+    const isPdf = format === 'pdf';
+    const pg = isPdf ? sel.page ?? pos?.page ?? 1 : pos?.page;
+    let location: string;
+    if (isPdf) location = `p:${pg}:${(sel.offset ?? 0).toFixed(4)}`;
+    else {
+      const m = /^epubcfi\((.*?),(.*?),(.*?)\)$/.exec(sel.cfiRange);
+      location = m ? `epubcfi(${m[1]}${m[2]})` : sel.cfiRange;
+    }
+    await saveAnn({
+      id: uid(),
+      bookId: id,
+      type: 'bookmark',
+      location,
+      cfiRange: isPdf ? undefined : sel.cfiRange,
+      text: sel.text.slice(0, 300),
+      page: pg,
+      chapter: pos?.chapter,
+      percentage: isPdf ? Math.min(1, ((pg ?? 1) - 1 + (sel.offset ?? 0)) / Math.max(1, total)) : pos?.percentage ?? 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    clearSel.current();
+    setSel(null);
+    toast('annot.bookmarkAdded');
+  };
   const copySel = async () => {
     if (!sel) return;
     try {
@@ -439,7 +467,7 @@ export function ReaderScreen({ id }: { id: string }) {
           <PdfView key="orig" bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={posRef.current?.location ?? book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onExternalLink={setExtUrl} onError={onError} />
         )}
         {book && data && format === 'pdf' && settings.pdfReflow && (
-          <ReflowView key="reflow" bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={posRef.current?.location ?? book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onExternalLink={setExtUrl} onError={onError} />
+          <ReflowView key="reflow" bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={posRef.current?.location ?? book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onSelect={onSelect} registerClearSelection={registerClear} onExternalLink={setExtUrl} onError={onError} />
         )}
         {!data && (
           <div className="reader-state">
@@ -511,6 +539,12 @@ export function ReaderScreen({ id }: { id: string }) {
                 {isPdf && total ? <small>/ {n(total)}</small> : footLeft ? <small>{footLeft}</small> : null}
               </div>
             )}
+            <div className="mark-dots" aria-hidden>
+              {bookmarks.map((b) => {
+                const f = Math.min(1, Math.max(0, isPdf ? pageFrac(b.page ?? 1) : b.percentage));
+                return <i key={b.id} className={b.cfiRange || b.text ? 'word' : ''} style={{ left: `calc(${f * 100}% + ${(0.5 - f) * 13}px)` }} />;
+              })}
+            </div>
             <input
               className="range slim"
               style={{ ['--p' as string]: `${pct * 100}%` }}
@@ -548,14 +582,21 @@ export function ReaderScreen({ id }: { id: string }) {
       </div>
 
       {/* ---------- selection dock (EPUB) ---------- */}
-      {sel && format === 'epub' && (
+      {sel && (
         <div className="sel-dock" role="toolbar" aria-label={t('reader.selection')}>
+          {format === 'epub' && (
           <div className="colors" role="group" aria-label={t('annot.color')}>
             {(Object.keys(HIGHLIGHT_COLORS) as HighlightColor[]).map((c) => (
               <button key={c} className="color-dot" style={{ ['--c' as string]: HIGHLIGHT_COLORS[c].fill }} onClick={() => void makeHighlight(c)} aria-label={`${t('annot.highlight')} — ${t(`hl.${c}`)}`} />
             ))}
           </div>
-          <span className="sep" />
+          )}
+          {format === 'epub' && <span className="sep" />}
+          <button className="act mark" onClick={() => void bookmarkSel()}>
+            <Bookmark size={18} aria-hidden="true" />
+            {t('annot.bookmark')}
+          </button>
+          {format === 'epub' && (
           <button
             className="act"
             onClick={async () => {
@@ -566,6 +607,7 @@ export function ReaderScreen({ id }: { id: string }) {
             <StickyNote size={19} aria-hidden="true" />
             {t('annot.addNote')}
           </button>
+          )}
           <button className="act" onClick={() => void copySel()}>
             <Copy size={18} aria-hidden="true" />
             {t('common.copy')}

@@ -26,6 +26,7 @@
   --accent: #78816c;
   --accent-ink: #5f6954; /* accessible accent for text on light */
   --accent2: #b28d65;
+  --mark: #b0503f;
   --border: #e4e0d7;
   --on-accent: #ffffff;
   --overlay: rgba(37, 40, 36, 0.38);
@@ -41,6 +42,7 @@
   --accent: #a2ae91;
   --accent-ink: #a2ae91;
   --accent2: #c0a17d;
+  --mark: #d98b7f;
   --border: #383d36;
   --on-accent: #191b19;
   --overlay: rgba(0, 0, 0, 0.55);
@@ -56,6 +58,7 @@
   --accent: #8a7a55;
   --accent-ink: #6b5a3e;
   --accent2: #a8794d;
+  --mark: #a4493d;
   --border: #dccfb4;
   --on-accent: #fffaf0;
   --overlay: rgba(67, 57, 47, 0.4);

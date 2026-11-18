@@ -9,6 +9,9 @@ import { kvGet, kvSet } from '../lib/db';
 export interface EpubSelection {
   cfiRange: string;
   text: string;
+  /** PDF reflow only: page and vertical position (0‑1) of the selection */
+  page?: number;
+  offset?: number;
 }
 
 export interface EpubViewProps {
@@ -60,6 +63,7 @@ export function EpubView(props: EpubViewProps) {
   const cssRef = useRef('');
   const lastCfi = useRef<string | undefined>(props.initialLocation);
   const appliedHl = useRef(new Map<string, { cfiRange: string; color: string }>());
+  const appliedBm = useRef(new Map<string, { cfiRange: string; color: string }>());
   const selContents = useRef<any>(null);
   const syncRef = useRef<null | (() => void)>(null);
 
@@ -73,6 +77,7 @@ export function EpubView(props: EpubViewProps) {
     const host = hostRef.current!;
     setLoading(true);
     appliedHl.current = new Map();
+    appliedBm.current = new Map();
     let book: any;
     let rendition: any;
     let ro: ResizeObserver | undefined;
@@ -405,7 +410,46 @@ export function EpubView(props: EpubViewProps) {
         }
       }
     }
-    syncRef.current = syncHighlights;
+    /* word bookmarks: small dotted underline in the app's mark colour */
+    function syncBookmarks() {
+      const r = renditionRef.current;
+      if (!r) return;
+      const markColor = P.current.theme === 'dark' ? '#d98b7f' : P.current.theme === 'sepia' ? '#a4493d' : '#b0503f';
+      const want = new Map<string, AnnotationRecord>();
+      for (const a of P.current.annotations) if (a.type === 'bookmark' && a.cfiRange) want.set(a.id, a);
+      for (const [id, cur] of appliedBm.current) {
+        const w = want.get(id);
+        if (!w || w.cfiRange !== cur.cfiRange || cur.color !== markColor) {
+          try {
+            r.annotations.remove(cur.cfiRange, 'underline');
+          } catch {
+            /* ignore */
+          }
+          appliedBm.current.delete(id);
+        }
+      }
+      for (const [id, a] of want) {
+        if (appliedBm.current.has(id)) continue;
+        try {
+          r.annotations.underline(a.cfiRange!, { id }, undefined, 'margins-bm', {
+            stroke: markColor,
+            'stroke-opacity': '0.95',
+            'stroke-width': '2.2',
+            'stroke-dasharray': '0.5 4',
+            'stroke-linecap': 'round',
+            'mix-blend-mode': 'normal',
+          });
+          appliedBm.current.set(id, { cfiRange: a.cfiRange!, color: markColor });
+        } catch {
+          /* invalid range — skip */
+        }
+      }
+    }
+    const syncAll = () => {
+      syncHighlights();
+      syncBookmarks();
+    };
+    syncRef.current = syncAll;
 
     P.current.registerClearSelection(() => {
       try {
