@@ -60,6 +60,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const [editing, setEditing] = useState<AnnotationRecord | null>(null);
   const [extUrl, setExtUrl] = useState<string | null>(null);
   const [scrub, setScrub] = useState<number | null>(null);
+  const [optPage, setOptPage] = useState<number | null>(null); // page we just jumped to, shown until the view reports it
   const [fs, setFs] = useState(false);
 
   const format = book?.format ?? 'epub';
@@ -144,6 +145,16 @@ export function ReaderScreen({ id }: { id: string }) {
     },
     [persist]
   );
+
+  useEffect(() => {
+    if (optPage == null) return;
+    if (pos?.page === optPage) {
+      setOptPage(null);
+      return;
+    }
+    const tm = setTimeout(() => setOptPage(null), 900);
+    return () => clearTimeout(tm);
+  }, [optPage, pos?.page]);
 
   /* ---------- toolbar auto-hide (first reveal) ---------- */
   useEffect(() => {
@@ -343,9 +354,24 @@ export function ReaderScreen({ id }: { id: string }) {
   const title = book?.title ?? '';
   const showBars = ui && !sel;
   const total = pos?.total ?? info?.numPages ?? book?.pages ?? 0;
-  const pct = scrub ?? pos?.percentage ?? book?.percentage ?? 0;
+  const isPdf = format === 'pdf';
+  const curPage = optPage ?? pos?.page ?? 1;
+  // PDF: the slider is page-based (first page = far left, last page = far right)
+  const pageFrac = (pg: number) => (total > 1 ? (pg - 1) / (total - 1) : 0);
+  const scrubPage = scrub != null && total ? Math.min(total, Math.max(1, Math.round(scrub * (total - 1)) + 1)) : null;
+  const pct = scrub ?? (isPdf ? pageFrac(curPage) : pos?.percentage ?? book?.percentage ?? 0);
+  const commitScrub = () => {
+    if (scrub == null) return;
+    if (isPdf && scrubPage != null) {
+      setOptPage(scrubPage);
+      info?.api.goToPage?.(scrubPage);
+    }
+    else info?.api.goToPercent(scrub);
+    setScrub(null);
+  };
+  const bubbleText = scrub == null ? '' : isPdf ? `${n(scrubPage ?? 1)}` : `${n(Math.round(scrub * 100))}%`;
   const footLeft = format === 'epub' ? pos?.chapter ?? '' : '';
-  const footRight = format === 'epub' ? `${n(Math.round(pct * 100))}%` : total ? `${n(pos?.page ?? 1)} / ${n(total)}` : '';
+  const footRight = format === 'epub' ? `${n(Math.round(pct * 100))}%` : total ? `${n(scrubPage ?? curPage)} / ${n(total)}` : '';
   const isBookmarked = bookmarksHere.length > 0;
   const rtlUi = lang === 'ar';
   useEffect(() => {
@@ -465,27 +491,30 @@ export function ReaderScreen({ id }: { id: string }) {
           <button className="icon-btn" onClick={() => info?.api.prevSection()} aria-label={t(format === 'pdf' ? 'reader.prevPage' : 'reader.prevChapter')} tabIndex={showBars ? 0 : -1}>
             <SkipBack className="flip" size={19} />
           </button>
-          <input
-            className="range"
-            type="range"
-            min={0}
-            max={1000}
-            step={1}
-            value={Math.round(pct * 1000)}
-            aria-label={t('reader.progress')}
-            aria-valuetext={footRight}
-            tabIndex={showBars ? 0 : -1}
-            onChange={(e) => setScrub(Number(e.target.value) / 1000)}
-            onPointerUp={() => {
-              if (scrub != null) info?.api.goToPercent(scrub);
-              setScrub(null);
-            }}
-            onKeyUp={() => {
-              if (scrub != null) info?.api.goToPercent(scrub);
-              setScrub(null);
-            }}
-            style={{ flex: 1 }}
-          />
+          <div className="scrub-track">
+            {scrub != null && (
+              <div className="scrub-bubble" style={{ left: `clamp(56px, calc(${pct * 100}% + ${(0.5 - pct) * 22}px), calc(100% - 56px))` }} aria-hidden>
+                <b>{bubbleText}</b>
+                {isPdf && total ? <small>/ {n(total)}</small> : footLeft ? <small>{footLeft}</small> : null}
+              </div>
+            )}
+            <input
+              className="range"
+              type="range"
+              min={0}
+              max={1000}
+              step={1}
+              value={Math.round(pct * 1000)}
+              aria-label={t('reader.progress')}
+              aria-valuetext={footRight}
+              tabIndex={showBars ? 0 : -1}
+              onChange={(e) => setScrub(Number(e.target.value) / 1000)}
+              onPointerUp={commitScrub}
+              onPointerCancel={commitScrub}
+              onKeyUp={commitScrub}
+              onBlur={commitScrub}
+            />
+          </div>
           <button className="icon-btn" onClick={() => info?.api.nextSection()} aria-label={t(format === 'pdf' ? 'reader.nextPage' : 'reader.nextChapter')} tabIndex={showBars ? 0 : -1}>
             <SkipForward className="flip" size={19} />
           </button>
@@ -496,7 +525,7 @@ export function ReaderScreen({ id }: { id: string }) {
           <ToolButton icon={<Type size={22} />} label={t(format === 'pdf' ? 'reader.view' : 'reader.appearance')} onClick={openPanel('typo')} enabled={showBars} />
         </div>
         {format === 'pdf' && showBars && (
-          <PageJump page={pos?.page ?? 1} total={total} onGo={(p) => info?.api.goToPage?.(p)} />
+          <PageJump page={scrubPage ?? curPage} total={total} onGo={(p) => { setOptPage(p); info?.api.goToPage?.(p); }} />
         )}
       </div>
 

@@ -12,6 +12,12 @@
 .rbar .title small { display: block; font-size: 12px; color: var(--fg2); }
 .rbar .scrub { display: flex; align-items: center; gap: 10px; padding-inline: 14px; }
 .rbar .scrub span { font-size: 12px; color: var(--fg2); min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+.rbar .scrub-track { position: relative; flex: 1; min-width: 0; }
+.rbar .scrub-track .range { touch-action: none; }
+.scrub-bubble { position: absolute; bottom: calc(100% + 10px); transform: translateX(-50%); display: flex; align-items: baseline; gap: 6px; padding: 8px 18px; border-radius: 999px; background: var(--fg); color: var(--bg); box-shadow: 0 6px 22px rgb(0 0 0 / 0.28); pointer-events: none; white-space: nowrap; font-variant-numeric: tabular-nums; animation: bubbleIn 120ms var(--ease); }
+.scrub-bubble b { font-size: 24px; font-weight: 650; line-height: 1.1; }
+.scrub-bubble small { font-size: 12px; opacity: 0.7; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+@keyframes bubbleIn { from { opacity: 0; transform: translateX(-50%) translateY(6px); } }
 .rbar .tools { display: flex; justify-content: space-around; padding-bottom: 2px; }
 
 .rfoot { position: absolute; inset-inline: 0; bottom: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 0 calc(20px + var(--safe-l)) calc(8px + var(--safe-b)) calc(20px + var(--safe-r)); font-size: 12px; color: var(--fg2); pointer-events: none; font-variant-numeric: tabular-nums; }

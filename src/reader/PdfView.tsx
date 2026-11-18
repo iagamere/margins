@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { useT } from '../lib/i18n';
 import { isPasswordError, loadPdfjs, openPdf, resolveOutlineDest, type OpenedPdf } from '../lib/pdf';
 import type { ErrorCode, ReaderApi, ReaderPosition, ReaderReadyInfo, SearchHit, Settings, ThemeName, TocItem } from '../lib/types';
-import { clamp, debounce, sleep } from '../lib/utils';
+import { clamp, debounce, sleep, throttle } from '../lib/utils';
 
 export interface PdfViewProps {
   bookId: string;
@@ -401,7 +401,7 @@ export function PdfView(props: PdfViewProps) {
   /* ----- position reporting ----- */
   const report = useMemo(
     () =>
-      debounce(() => {
+      throttle(() => {
         const sc = scrollerRef.current;
         const n = P.current ? tocCount.current : 0;
         if (!sc || !n || restoring.current) return;
@@ -414,7 +414,7 @@ export function PdfView(props: PdfViewProps) {
         const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 6;
         const pct = atBottom && page === n ? 1 : (page - 1 + offset) / n;
         P.current.onPosition({ location: `p:${page}:${offset.toFixed(4)}`, percentage: clamp(pct, 0, 1), page, total: n, atEnd: atBottom && page === n });
-      }, 160),
+      }, 50),
     []
   );
   const tocCount = useRef(0);
@@ -569,7 +569,7 @@ export function PdfView(props: PdfViewProps) {
       },
       goToToc: (item) => void goToDest(item.dest),
       goToPercent: (p) => scrollToPage(clamp(Math.round(p * n) || 1, 1, n), 0, false),
-      goToPage: (pg) => scrollToPage(clamp(Math.round(pg), 1, n), 0, true),
+      goToPage: (pg) => scrollToPage(clamp(Math.round(pg), 1, n), 0, false),
       zoomBy: (f) => applyZoom(f),
       setFit: (m) => {
         setFit(m);

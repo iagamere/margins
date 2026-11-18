@@ -6,7 +6,7 @@ import { convertOutline, isPasswordError, loadPdfjs, openPdf, resolveOutlineDest
 import { extractPage, type PageText } from '../lib/reflow';
 import { resolveFont } from '../lib/readerCss';
 import type { ErrorCode, ReaderApi, ReaderPosition, ReaderReadyInfo, SearchHit, Settings, ThemeName } from '../lib/types';
-import { clamp, debounce } from '../lib/utils';
+import { clamp, throttle } from '../lib/utils';
 import { makeLimiter, makeRegistry, type Registry } from './PdfView';
 
 export interface ReflowViewProps {
@@ -283,7 +283,7 @@ export function ReflowView(props: ReflowViewProps) {
   /* ----- position reporting ----- */
   const report = useMemo(
     () =>
-      debounce(() => {
+      throttle(() => {
         const sc = scrollerRef.current;
         const total = nRef.current;
         if (!sc || !total || restoring.current) return;
@@ -304,7 +304,7 @@ export function ReflowView(props: ReflowViewProps) {
         const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 6;
         const pct = atBottom && page === total ? 1 : (page - 1 + offset) / total;
         P.current.onPosition({ location: `p:${page}:${offset.toFixed(4)}`, percentage: clamp(pct, 0, 1), page, total, atEnd: atBottom && page === total });
-      }, 160),
+      }, 50),
     []
   );
 
@@ -373,7 +373,7 @@ export function ReflowView(props: ReflowViewProps) {
         if (pg) scrollToPage(clamp(pg, 1, total), 0, true);
       },
       goToPercent: (pc) => scrollToPage(clamp(Math.round(pc * total) || 1, 1, total), 0),
-      goToPage: (pg) => scrollToPage(clamp(Math.round(pg), 1, total), 0, true),
+      goToPage: (pg) => scrollToPage(clamp(Math.round(pg), 1, total), 0, false),
       // "zoom" in reflow mode means text size
       zoomBy: (f) => {
         const st = useApp.getState();

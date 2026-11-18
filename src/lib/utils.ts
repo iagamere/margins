@@ -22,6 +22,38 @@ export function debounce<A extends unknown[]>(fn: (...a: A) => void, ms: number)
   return d;
 }
 
+/** Leading + trailing throttle: first call runs now, later ones are coalesced to at most one per `ms`. */
+export function throttle<A extends unknown[]>(fn: (...a: A) => void, ms: number) {
+  let last = 0;
+  let t: ReturnType<typeof setTimeout> | undefined;
+  let pending: A | undefined;
+  const run = () => {
+    t = undefined;
+    last = Date.now();
+    const a = pending!;
+    pending = undefined;
+    fn(...a);
+  };
+  const d = (...a: A) => {
+    pending = a;
+    if (t) return;
+    const wait = ms - (Date.now() - last);
+    if (wait <= 0) run();
+    else t = setTimeout(run, wait);
+  };
+  d.cancel = () => {
+    if (t) clearTimeout(t);
+    t = undefined;
+  };
+  d.flush = (...a: A) => {
+    if (t) clearTimeout(t);
+    t = undefined;
+    last = Date.now();
+    fn(...a);
+  };
+  return d;
+}
+
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
