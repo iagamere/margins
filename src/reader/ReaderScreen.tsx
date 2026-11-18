@@ -23,7 +23,7 @@ import { cfiCompare } from '../lib/cfi';
 import { HIGHLIGHT_COLORS } from '../lib/readerCss';
 import { pushBackHandler } from '../lib/backStack';
 import { openExternal } from '../lib/platform';
-import { debounce, uid } from '../lib/utils';
+import { debounce, throttle, uid } from '../lib/utils';
 import type { AnnotationRecord, BookRecord, ErrorCode, HighlightColor, ReaderApi, ReaderPosition, ReaderReadyInfo, ThemeName, TocItem } from '../lib/types';
 import { Sheet } from '../components/Sheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -66,6 +66,18 @@ export function ReaderScreen({ id }: { id: string }) {
   const format = book?.format ?? 'epub';
   const infoRef = useRef<ReaderReadyInfo | null>(null);
   infoRef.current = info;
+  // live page change while dragging the progress slider
+  const liveGo = useMemo(
+    () =>
+      throttle((frac: number) => {
+        const inf = infoRef.current;
+        if (!inf) return;
+        const tot = inf.numPages ?? 0;
+        if (tot) inf.api.goToPage?.(Math.min(tot, Math.max(1, Math.round(frac * (tot - 1)) + 1)));
+        else inf.api.goToPercent(frac);
+      }, 70),
+    []
+  );
   const getApi = useCallback(() => infoRef.current?.api ?? null, []);
   const search = useBookSearch(getApi);
   const clearSel = useRef<() => void>(() => undefined);
@@ -362,6 +374,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const pct = scrub ?? (isPdf ? pageFrac(curPage) : pos?.percentage ?? book?.percentage ?? 0);
   const commitScrub = () => {
     if (scrub == null) return;
+    liveGo.cancel();
     if (isPdf && scrubPage != null) {
       setOptPage(scrubPage);
       info?.api.goToPage?.(scrubPage);
@@ -499,7 +512,8 @@ export function ReaderScreen({ id }: { id: string }) {
               </div>
             )}
             <input
-              className="range"
+              className="range slim"
+              style={{ ['--p' as string]: `${pct * 100}%` }}
               type="range"
               min={0}
               max={1000}
@@ -508,7 +522,11 @@ export function ReaderScreen({ id }: { id: string }) {
               aria-label={t('reader.progress')}
               aria-valuetext={footRight}
               tabIndex={showBars ? 0 : -1}
-              onChange={(e) => setScrub(Number(e.target.value) / 1000)}
+              onChange={(e) => {
+                const v = Number(e.target.value) / 1000;
+                setScrub(v);
+                liveGo(v);
+              }}
               onPointerUp={commitScrub}
               onPointerCancel={commitScrub}
               onKeyUp={commitScrub}
