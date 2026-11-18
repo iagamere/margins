@@ -616,7 +616,7 @@ export function ReaderScreen({ id }: { id: string }) {
             </svg>
             <div className={'mark-dots' + (scrub != null ? ' goo' : '')} aria-hidden>
               <b
-                className="thumb"
+                className="mk-thumb"
                 style={{
                   left: trackW ? `${THUMB / 2 + pct * span}px` : `calc(${pct * 100}% + ${(0.5 - pct) * THUMB}px)`,
                   ['--ts' as string]: scrub == null ? 1 : 1.3,
