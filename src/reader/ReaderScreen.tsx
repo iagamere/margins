@@ -24,6 +24,7 @@ import { HIGHLIGHT_COLORS } from '../lib/readerCss';
 import { pushBackHandler } from '../lib/backStack';
 import { openExternal } from '../lib/platform';
 import { debounce, throttle, uid } from '../lib/utils';
+import { BookmarkPopover } from './BookmarkPopover';
 import type { AnnotationRecord, BookRecord, ErrorCode, HighlightColor, ReaderApi, ReaderPosition, ReaderReadyInfo, ThemeName, TocItem } from '../lib/types';
 import { Sheet } from '../components/Sheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -60,6 +61,11 @@ export function ReaderScreen({ id }: { id: string }) {
   const [editing, setEditing] = useState<AnnotationRecord | null>(null);
   const [extUrl, setExtUrl] = useState<string | null>(null);
   const [scrub, setScrub] = useState<number | null>(null);
+  const [bmEdit, setBmEdit] = useState<string | null>(null);
+  const [trackW, setTrackW] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const snapId = useRef<string | null>(null);
   const [optPage, setOptPage] = useState<number | null>(null); // page we just jumped to, shown until the view reports it
   const [fs, setFs] = useState(false);
 
@@ -168,6 +174,16 @@ export function ReaderScreen({ id }: { id: string }) {
     return () => clearTimeout(tm);
   }, [optPage, pos?.page]);
 
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const measure = () => setTrackW(el.getBoundingClientRect().width);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ui, data]);
+
   /* ---------- toolbar auto-hide (first reveal) ---------- */
   useEffect(() => {
     if (!data || uiTouched.current) return;
@@ -230,6 +246,38 @@ export function ReaderScreen({ id }: { id: string }) {
     toast('annot.bookmarkAdded');
   };
 
+  const newBookmark = (): AnnotationRecord => {
+    const now = Date.now();
+    return {
+      id: uid(),
+      bookId: id,
+      type: 'bookmark',
+      location: format === 'pdf' ? `p:${pos!.page}:0` : pos!.start ?? pos!.location,
+      page: pos!.page,
+      chapter: pos!.chapter,
+      percentage: pos!.percentage,
+      createdAt: now,
+      updatedAt: now,
+    };
+  };
+  /** Top-bar bookmark button: edit the bookmark of this page, or create one and open its card. */
+  const bookmarkAction = async () => {
+    if (!pos) return;
+    if (bookmarksHere.length) {
+      setBmEdit(bookmarksHere[0].id);
+      return;
+    }
+    const rec = newBookmark();
+    await saveAnn(rec);
+    setBmEdit(rec.id);
+  };
+  const annRef = useRef(annotations);
+  annRef.current = annotations;
+  const patchAnn = (annId: string, patch: Partial<AnnotationRecord>) => {
+    const a = annRef.current.find((x) => x.id === annId);
+    if (a) void saveAnn({ ...a, ...patch, updatedAt: Date.now() });
+  };
+
   /* ---------- selection / highlights (EPUB) ---------- */
   const lastColor = useRef<HighlightColor>('gold');
   const makeHighlight = async (color: HighlightColor): Promise<AnnotationRecord | null> => {
@@ -265,7 +313,7 @@ export function ReaderScreen({ id }: { id: string }) {
       const m = /^epubcfi\((.*?),(.*?),(.*?)\)$/.exec(sel.cfiRange);
       location = m ? `epubcfi(${m[1]}${m[2]})` : sel.cfiRange;
     }
-    await saveAnn({
+    const rec: AnnotationRecord = {
       id: uid(),
       bookId: id,
       type: 'bookmark',
@@ -277,10 +325,11 @@ export function ReaderScreen({ id }: { id: string }) {
       percentage: isPdf ? Math.min(1, ((pg ?? 1) - 1 + (sel.offset ?? 0)) / Math.max(1, total)) : pos?.percentage ?? 0,
       createdAt: now,
       updatedAt: now,
-    });
+    };
+    await saveAnn(rec);
     clearSel.current();
     setSel(null);
-    toast('annot.bookmarkAdded');
+    setBmEdit(rec.id);
   };
   const copySel = async () => {
     if (!sel) return;
@@ -401,6 +450,8 @@ export function ReaderScreen({ id }: { id: string }) {
   const scrubPage = scrub != null && total ? Math.min(total, Math.max(1, Math.round(scrub * (total - 1)) + 1)) : null;
   const pct = scrub ?? (isPdf ? pageFrac(curPage) : pos?.percentage ?? book?.percentage ?? 0);
   const commitScrub = () => {
+    dragging.current = false;
+    snapId.current = null;
     if (scrub == null) return;
     liveGo.cancel();
     if (isPdf && scrubPage != null) {
@@ -410,6 +461,11 @@ export function ReaderScreen({ id }: { id: string }) {
     else info?.api.goToPercent(scrub);
     setScrub(null);
   };
+  const THUMB = 13;
+  const span = Math.max(1, trackW - THUMB);
+  const marks = bookmarks.map((b) => ({ b, f: Math.min(1, Math.max(0, isPdf ? pageFrac(b.page ?? 1) : b.percentage)) }));
+  const markName = (b: AnnotationRecord) => b.title || (b.text ? b.text.slice(0, 28) : b.page ? t('reader.pageN', { n: n(b.page) }) : t('annot.bookmark'));
+  const nearMark = scrub != null && trackW ? marks.filter((m) => Math.abs(m.f - scrub) * span < 14).sort((a, c) => Math.abs(a.f - scrub) - Math.abs(c.f - scrub))[0] : undefined;
   const bubbleText = scrub == null ? '' : isPdf ? `${n(scrubPage ?? 1)}` : `${n(Math.round(scrub * 100))}%`;
   const footLeft = format === 'epub' ? pos?.chapter ?? '' : '';
   const footRight = format === 'epub' ? `${n(Math.round(pct * 100))}%` : total ? `${n(scrubPage ?? curPage)} / ${n(total)}` : '';
@@ -518,7 +574,7 @@ export function ReaderScreen({ id }: { id: string }) {
             {fs ? <Minimize size={20} /> : <Expand size={20} />}
           </button>
         )}
-        <button className="icon-btn" onClick={() => void toggleBookmark()} aria-pressed={isBookmarked} aria-label={isBookmarked ? t('annot.removeBookmark') : t('annot.addBookmark')} tabIndex={showBars ? 0 : -1}>
+        <button className="icon-btn" onClick={() => void bookmarkAction()} aria-pressed={isBookmarked} aria-label={isBookmarked ? t('bm.title') : t('annot.addBookmark')} tabIndex={showBars ? 0 : -1}>
           {isBookmarked ? <BookmarkCheck size={22} /> : <Bookmark size={22} />}
         </button>
         <button className="icon-btn" onClick={openPanel('search')} aria-label={t('reader.search')} tabIndex={showBars ? 0 : -1}>
@@ -532,17 +588,41 @@ export function ReaderScreen({ id }: { id: string }) {
           <button className="icon-btn" onClick={() => info?.api.prevSection()} aria-label={t(format === 'pdf' ? 'reader.prevPage' : 'reader.prevChapter')} tabIndex={showBars ? 0 : -1}>
             <SkipBack className="flip" size={19} />
           </button>
-          <div className="scrub-track">
+          <div className="scrub-track" ref={trackRef}>
             {scrub != null && (
-              <div className="scrub-bubble" style={{ left: `clamp(56px, calc(${pct * 100}% + ${(0.5 - pct) * 22}px), calc(100% - 56px))` }} aria-hidden>
+              <div className="scrub-bubble" style={{ left: `clamp(56px, calc(${pct * 100}% + ${(0.5 - pct) * THUMB}px), calc(100% - 56px))` }} aria-hidden>
+                {nearMark && (
+                  <span className="bm-name" style={{ ['--c' as string]: nearMark.b.markColor ?? 'var(--mark)' }}>
+                    <i />
+                    <span dir="auto">{markName(nearMark.b)}</span>
+                  </span>
+                )}
                 <b>{bubbleText}</b>
                 {isPdf && total ? <small>/ {n(total)}</small> : footLeft ? <small>{footLeft}</small> : null}
               </div>
             )}
             <div className="mark-dots" aria-hidden>
-              {bookmarks.map((b) => {
-                const f = Math.min(1, Math.max(0, isPdf ? pageFrac(b.page ?? 1) : b.percentage));
-                return <i key={b.id} className={b.cfiRange || b.text ? 'word' : ''} style={{ left: `calc(${f * 100}% + ${(0.5 - f) * 13}px)` }} />;
+              {marks.map(({ b, f }) => {
+                let left = `calc(${f * 100}% + ${(0.5 - f) * THUMB}px)`;
+                let sc = 1;
+                if (trackW) {
+                  const x0 = THUMB / 2 + f * span;
+                  let x = x0;
+                  if (scrub != null) {
+                    // fisheye around the thumb: the nearest bookmarks grow and spread apart, the rest recede
+                    const xt = THUMB / 2 + scrub * span;
+                    const d = x0 - xt;
+                    const ad = Math.abs(d);
+                    const R = 64;
+                    const k = 2.6;
+                    if (ad < R) {
+                      x = xt + Math.sign(d || 1) * ((R * (1 + k) * ad) / (k * ad + R));
+                      sc = 0.8 + 1.5 * (1 - ad / R) ** 2;
+                    } else sc = 0.8;
+                  }
+                  left = `${Math.min(trackW - 3, Math.max(3, x))}px`;
+                }
+                return <i key={b.id} className={b.text ? 'word' : ''} style={{ left, ['--s' as string]: sc, ['--c' as string]: b.markColor ?? undefined }} />;
               })}
             </div>
             <input
@@ -556,8 +636,28 @@ export function ReaderScreen({ id }: { id: string }) {
               aria-label={t('reader.progress')}
               aria-valuetext={footRight}
               tabIndex={showBars ? 0 : -1}
+              onPointerDown={() => {
+                dragging.current = true;
+                if (trackRef.current) setTrackW(trackRef.current.getBoundingClientRect().width);
+              }}
               onChange={(e) => {
-                const v = Number(e.target.value) / 1000;
+                let v = Number(e.target.value) / 1000;
+                let hit: string | null = null;
+                if (dragging.current && settings.magnet && trackW) {
+                  let best = 11 / span; // pull radius: 11px
+                  for (const m of marks) {
+                    const d = Math.abs(m.f - v);
+                    if (d < best) {
+                      best = d;
+                      v = m.f;
+                      hit = m.b.id;
+                    }
+                  }
+                }
+                if (hit !== snapId.current) {
+                  snapId.current = hit;
+                  if (hit) navigator.vibrate?.(8);
+                }
                 setScrub(v);
                 liveGo(v);
               }}
@@ -676,7 +776,7 @@ export function ReaderScreen({ id }: { id: string }) {
       )}
       {panel === 'notes' && (
         <Sheet title={t('reader.notes')} onClose={() => setPanel(null)}>
-          <AnnotationsPanel format={format} items={annotations} onGo={goAnn} onEdit={(a) => setEditing(a)} onDelete={(a) => void removeAnn(a)} />
+          <AnnotationsPanel format={format} items={annotations} onGo={goAnn} onEdit={(a) => { if (a.type === 'bookmark') { setPanel(null); setBmEdit(a.id); } else setEditing(a); }} onDelete={(a) => void removeAnn(a)} />
         </Sheet>
       )}
       {panel === 'typo' && (
@@ -685,6 +785,24 @@ export function ReaderScreen({ id }: { id: string }) {
         </Sheet>
       )}
 
+      {bmEdit && annotations.find((x) => x.id === bmEdit) && (() => {
+        const a = annotations.find((x) => x.id === bmEdit)!;
+        const where = a.page ? t('reader.pageN', { n: n(a.page) }) : `${n(Math.round(a.percentage * 100))}%`;
+        return (
+          <BookmarkPopover
+            key={a.id}
+            ann={a}
+            where={where}
+            onSave={(patch) => patchAnn(a.id, patch)}
+            onClose={() => setBmEdit(null)}
+            onDelete={async () => {
+              setBmEdit(null);
+              await removeAnn(a);
+              toast('annot.bookmarkRemoved');
+            }}
+          />
+        );
+      })()}
       {editing && (
         <NoteDialog
           annotation={editing}

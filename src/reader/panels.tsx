@@ -240,12 +240,12 @@ export function AnnotationsPanel({
                 <div className="quote" dir="auto">{a.text}</div>
               ) : (
                 <div className="row" style={{ gap: 8 }}>
-                  <Bookmark size={17} style={{ color: 'var(--mark)' }} aria-hidden="true" />
-                  <span style={{ fontWeight: 600 }}>{a.page ? t('reader.pageN', { n: n(a.page) }) : t('annot.bookmark')}</span>
+                  <Bookmark size={17} fill="currentColor" style={{ color: a.markColor ?? 'var(--mark)' }} aria-hidden="true" />
+                  <span style={{ fontWeight: 600 }}>{a.title || (a.page ? t('reader.pageN', { n: n(a.page) }) : t('annot.bookmark'))}</span>
                 </div>
               )}
               {a.type === 'bookmark' && a.text && (
-                <div className="quote" dir="auto" style={{ ['--hl' as string]: 'var(--mark)' }}>{a.text}</div>
+                <div className="quote" dir="auto" style={{ ['--hl' as string]: a.markColor ?? 'var(--mark)' }}>{a.text}</div>
               )}
               {a.note && <div className="note" dir="auto">{a.note}</div>}
             </button>

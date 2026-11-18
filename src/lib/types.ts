@@ -45,6 +45,9 @@ export interface AnnotationRecord {
   cfiRange?: string;
   text?: string;
   note?: string;
+  /** bookmarks: user-given name and marker colour ('#rrggbb', unset = default) */
+  title?: string;
+  markColor?: string;
   color?: HighlightColor;
   chapter?: string;
   page?: number;
@@ -75,6 +78,8 @@ export interface Settings {
   textWeight: TextWeight;
   /** bookmark marker colour: 'auto' follows the theme, otherwise a #rrggbb value */
   markColor: string;
+  /** progress-bar bookmarks attract the slider while dragging */
+  magnet: boolean;
   pdfAdaptTheme: boolean;
   /** PDF: show extracted text re-flowed to the screen instead of the original pages */
   pdfReflow: boolean;

@@ -83,6 +83,7 @@ export const useApp = create<AppState>((set, get) => ({
       textDir: d.textDir,
       textWeight: d.textWeight,
       markColor: d.markColor,
+      magnet: d.magnet,
       readerTheme: d.readerTheme,
       pdfAdaptTheme: d.pdfAdaptTheme,
     };

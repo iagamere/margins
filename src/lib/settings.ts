@@ -19,6 +19,7 @@ export const DEFAULT_READING = {
   textDir: 'auto',
   textWeight: 'regular',
   markColor: 'auto',
+  magnet: true,
   readerTheme: 'auto',
   pdfAdaptTheme: false,
 } as const satisfies Partial<Settings>;

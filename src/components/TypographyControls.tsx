@@ -5,7 +5,7 @@ import { DEFAULT_READING } from '../lib/settings';
 import { THEME_COLORS, resolveFont } from '../lib/readerCss';
 import type { ReadFont, ReaderTheme, ThemeName } from '../lib/types';
 
-const MARK_COLORS = ['#b0503f', '#c27a3a', '#a08a2f', '#5f8a5a', '#4a7ba6', '#7b62a8', '#b05a82'];
+export const MARK_COLORS = ['#b0503f', '#c27a3a', '#a08a2f', '#5f8a5a', '#4a7ba6', '#7b62a8', '#b05a82'];
 const FONTS: ReadFont[] = ['auto', 'literata', 'sourceSerif', 'naskh', 'amiri', 'plexArabic', 'cairo', 'inter', 'original'];
 
 function Stepper({ label, value, min, max, step, onChange, format }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; format: (v: number) => string }) {
@@ -128,6 +128,10 @@ export function TypographyControls({ showMode = true, format = 'epub', preview =
             <input type="color" value={/^#[0-9a-f]{6}$/i.test(s.markColor) ? s.markColor : '#b0503f'} onChange={(e) => set({ markColor: e.target.value })} />
           </label>
         </div>
+      </div>
+      <div className="setting-row">
+        <div><div className="label">{t('typo.magnet')}</div><div className="hint">{t('typo.magnetHint')}</div></div>
+        <button role="switch" aria-checked={s.magnet} aria-label={t('typo.magnet')} className="switch" onClick={() => set({ magnet: !s.magnet })} />
       </div>
       <button className="btn btn-block" onClick={reset} disabled={isDefault} style={isDefault ? { opacity: 0.5 } : undefined}>{t('typo.reset')}</button>
     </div>
