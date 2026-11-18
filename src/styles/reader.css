@@ -137,7 +137,9 @@
 .rf-page mark { background: color-mix(in srgb, var(--accent2) 45%, transparent); color: inherit; border-radius: 2px; }
 
 /* bookmark dots on the progress line */
-.mark-dots { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.mark-dots { position: absolute; inset: 0; pointer-events: none; z-index: 2; filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.28)); }
+.mark-dots.goo { filter: url(#mk-goo) drop-shadow(0 1px 3px rgb(0 0 0 / 0.28)); }
+.mark-dots .thumb { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--tc, var(--fg)); transform: scale(var(--ts, 1)); transition: transform 260ms cubic-bezier(0.34, 1.45, 0.5, 1), background-color 200ms var(--ease); z-index: 1; }
 .mark-dots i { position: absolute; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--c, var(--mark)); transform: scale(var(--s, 1)); opacity: var(--o, 1); transition: transform 110ms ease-out, opacity 140ms var(--ease); animation: dotIn 260ms var(--ease) both; }
 .mark-dots i.word { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 2px; transform: rotate(45deg) scale(var(--s, 1)); }
 @keyframes dotIn { from { opacity: 0; scale: 0.2; } }

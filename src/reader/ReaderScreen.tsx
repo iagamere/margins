@@ -65,6 +65,8 @@ export function ReaderScreen({ id }: { id: string }) {
   const [trackW, setTrackW] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
+  const downX = useRef<number | null>(null);
+  const moved = useRef(false);
   const snapId = useRef<string | null>(null);
   const [snapped, setSnapped] = useState<string | null>(null);
   const [optPage, setOptPage] = useState<number | null>(null); // page we just jumped to, shown until the view reports it
@@ -468,6 +470,8 @@ export function ReaderScreen({ id }: { id: string }) {
   const marks = bookmarks.map((b) => ({ b, f: Math.min(1, Math.max(0, isPdf ? pageFrac(b.page ?? 1) : b.percentage)) }));
   const markName = (b: AnnotationRecord) => b.title || (b.text ? b.text.slice(0, 28) : b.page ? t('reader.pageN', { n: n(b.page) }) : t('annot.bookmark'));
   const snappedMark = scrub != null ? marks.find((m) => m.b.id === snapped) : undefined;
+  const curMark = bookmarksHere[0];
+  const thumbColor = scrub != null ? (snappedMark ? snappedMark.b.markColor ?? 'var(--mark)' : undefined) : curMark ? curMark.markColor ?? 'var(--mark)' : undefined;
   const nearMark = scrub != null && trackW ? marks.filter((m) => Math.abs(m.f - scrub) * span < 14).sort((a, c) => Math.abs(a.f - scrub) - Math.abs(c.f - scrub))[0] : undefined;
   const bubbleText = scrub == null ? '' : isPdf ? `${n(scrubPage ?? 1)}` : `${n(Math.round(scrub * 100))}%`;
   const footLeft = format === 'epub' ? pos?.chapter ?? '' : '';
@@ -604,7 +608,21 @@ export function ReaderScreen({ id }: { id: string }) {
                 {isPdf && total ? <small>/ {n(total)}</small> : footLeft ? <small>{footLeft}</small> : null}
               </div>
             )}
-            <div className="mark-dots" aria-hidden>
+            <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden focusable="false">
+              <filter id="mk-goo" x="-20%" y="-200%" width="140%" height="500%" colorInterpolationFilters="sRGB">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="2.6" result="b" />
+                <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -6.5" />
+              </filter>
+            </svg>
+            <div className={'mark-dots' + (scrub != null ? ' goo' : '')} aria-hidden>
+              <b
+                className="thumb"
+                style={{
+                  left: trackW ? `${THUMB / 2 + pct * span}px` : `calc(${pct * 100}% + ${(0.5 - pct) * THUMB}px)`,
+                  ['--ts' as string]: scrub == null ? 1 : 1.3,
+                  ['--tc' as string]: thumbColor,
+                }}
+              />
               {marks.map(({ b, f }) => {
                 const x0 = THUMB / 2 + f * span;
                 const left = trackW ? `${x0}px` : `calc(${f * 100}% + ${(0.5 - f) * THUMB}px)`;
@@ -622,7 +640,7 @@ export function ReaderScreen({ id }: { id: string }) {
             </div>
             <input
               className="range slim"
-              style={{ ['--p' as string]: `${pct * 100}%`, ['--ts' as string]: scrub == null ? 1 : 1.3, ['--tc' as string]: snappedMark ? snappedMark.b.markColor ?? 'var(--mark)' : undefined }}
+              style={{ ['--p' as string]: `${pct * 100}%` }}
               type="range"
               min={0}
               max={1000}
@@ -631,9 +649,14 @@ export function ReaderScreen({ id }: { id: string }) {
               aria-label={t('reader.progress')}
               aria-valuetext={footRight}
               tabIndex={showBars ? 0 : -1}
-              onPointerDown={() => {
+              onPointerDown={(e) => {
                 dragging.current = true;
+                downX.current = e.clientX;
+                moved.current = false;
                 if (trackRef.current) setTrackW(trackRef.current.getBoundingClientRect().width);
+              }}
+              onPointerMove={(e) => {
+                if (downX.current != null && Math.abs(e.clientX - downX.current) >= 8) moved.current = true;
               }}
               onChange={(e) => {
                 let v = Number(e.target.value) / 1000;
@@ -657,10 +680,42 @@ export function ReaderScreen({ id }: { id: string }) {
                   if (hit) navigator.vibrate?.(8);
                 }
                 setScrub(v);
-                liveGo(v);
+                if (downX.current == null || moved.current) liveGo(v); // a plain tap must not flash through the tapped page
               }}
-              onPointerUp={commitScrub}
-              onPointerCancel={commitScrub}
+              onPointerUp={(e) => {
+                // a plain tap on a bookmark dot jumps straight to that bookmark
+                const el = trackRef.current;
+                const x0 = downX.current;
+                downX.current = null;
+                if (el && x0 != null && Math.abs(e.clientX - x0) < 8 && marks.length) {
+                  const left = el.getBoundingClientRect().left;
+                  let best: (typeof marks)[number] | null = null;
+                  let bd = 18; // generous touch radius (px)
+                  for (const m of marks) {
+                    const d = Math.abs(left + THUMB / 2 + m.f * span - e.clientX);
+                    if (d < bd) {
+                      bd = d;
+                      best = m;
+                    }
+                  }
+                  if (best) {
+                    liveGo.cancel();
+                    dragging.current = false;
+                    snapId.current = null;
+                    setSnapped(null);
+                    setScrub(null);
+                    if (best.b.page && isPdf) setOptPage(best.b.page);
+                    info?.api.goToLocation(best.b.location);
+                    navigator.vibrate?.(8);
+                    return;
+                  }
+                }
+                commitScrub();
+              }}
+              onPointerCancel={() => {
+                downX.current = null;
+                commitScrub();
+              }}
               onKeyUp={commitScrub}
               onBlur={commitScrub}
             />
