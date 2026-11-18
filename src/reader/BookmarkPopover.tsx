@@ -76,11 +76,11 @@ export function BookmarkPopover({
           onKeyDown={(e) => e.key === 'Enter' && close()}
         />
         <div className="mark-swatches" role="group" aria-label={t('bm.color')}>
-          <button className="swatch auto" aria-pressed={color === 'auto'} onClick={() => pick('auto')} aria-label={t('theme.auto')}>A</button>
+          <button className="mkc auto" aria-pressed={color === 'auto'} onClick={() => pick('auto')} aria-label={t('theme.auto')}>A</button>
           {MARK_COLORS.map((c) => (
-            <button key={c} className="swatch" style={{ background: c }} aria-pressed={color === c} onClick={() => pick(c)} aria-label={c} />
+            <button key={c} className="mkc" style={{ background: c }} aria-pressed={color === c} onClick={() => pick(c)} aria-label={c} />
           ))}
-          <label className={'swatch custom' + (custom ? ' on' : '')} aria-label={t('typo.markCustom')} style={custom ? { background: color } : undefined}>
+          <label className={'mkc custom' + (custom ? ' on' : '')} aria-label={t('typo.markCustom')} style={custom ? { background: color } : undefined}>
             <input type="color" value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#b0503f'} onChange={(e) => pick(e.target.value)} />
           </label>
         </div>

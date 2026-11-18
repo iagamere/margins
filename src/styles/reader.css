@@ -13,7 +13,7 @@
 .rbar .scrub { display: flex; align-items: center; gap: 10px; padding-inline: 14px; }
 .rbar .scrub span { font-size: 12px; color: var(--fg2); min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
 .rbar .scrub-track { position: relative; flex: 1; min-width: 0; }
-.rbar .scrub-track .range { touch-action: none; }
+.rbar .scrub-track .range { touch-action: none; display: block; }
 .scrub-bubble { position: absolute; bottom: calc(100% + 10px); transform: translateX(-50%); display: flex; align-items: baseline; gap: 6px; padding: 6px 14px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 92%, var(--bg)); color: var(--bg); box-shadow: 0 6px 22px rgb(0 0 0 / 0.28); pointer-events: none; white-space: nowrap; font-variant-numeric: tabular-nums; animation: bubbleIn 200ms var(--ease); }
 .scrub-bubble b { font-size: 20px; font-weight: 650; line-height: 1.1; }
 .scrub-bubble small { font-size: 12px; opacity: 0.7; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
@@ -138,17 +138,17 @@
 
 /* bookmark dots on the progress line */
 .mark-dots { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.mark-dots i { position: absolute; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--c, var(--mark)); transform: scale(var(--s, 1)); opacity: var(--o, 1); transition: transform 240ms cubic-bezier(0.34, 1.45, 0.5, 1), opacity 160ms var(--ease); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg) 90%, transparent); animation: dotIn 260ms var(--ease) both; }
-.mark-dots i.word { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 1.5px; transform: rotate(45deg) scale(var(--s, 1)); }
+.mark-dots i { position: absolute; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--c, var(--mark)); transform: scale(var(--s, 1)); opacity: var(--o, 1); transition: transform 110ms ease-out, opacity 140ms var(--ease); animation: dotIn 260ms var(--ease) both; }
+.mark-dots i.word { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 2px; transform: rotate(45deg) scale(var(--s, 1)); }
 @keyframes dotIn { from { opacity: 0; scale: 0.2; } }
 .sel-dock .act.mark svg { color: var(--mark); }
 
 /* bookmark colour picker */
 .mark-swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-top: 4px; }
-.swatch { width: 30px; height: 30px; border-radius: 50%; border: 0; position: relative; display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--fg2); background: var(--bg2); box-shadow: inset 0 0 0 1px var(--border); transition: transform 160ms var(--ease), box-shadow 160ms var(--ease); cursor: pointer; }
-.swatch[aria-pressed='true'], .swatch.on { transform: scale(1.12); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg); }
-.swatch.custom { background: conic-gradient(#b0503f, #c27a3a, #a08a2f, #5f8a5a, #4a7ba6, #7b62a8, #b05a82, #b0503f); overflow: hidden; }
-.swatch.custom input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.mkc { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 0; position: relative; display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--fg2); background: var(--bg2); box-shadow: inset 0 0 0 1px var(--border); transition: transform 160ms var(--ease), box-shadow 160ms var(--ease); cursor: pointer; }
+.mkc[aria-pressed='true'], .mkc.on { transform: scale(1.12); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg); }
+.mkc.custom { background: conic-gradient(#b0503f, #c27a3a, #a08a2f, #5f8a5a, #4a7ba6, #7b62a8, #b05a82, #b0503f); overflow: hidden; }
+.mkc.custom input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
 
 .scrub-bubble .bm-name { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; max-width: 220px; padding: 4px 10px; border-radius: 999px; background: var(--surface); color: var(--fg); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 12.5px; font-weight: 600; animation: bubbleIn 160ms var(--ease); }
 .scrub-bubble .bm-name i { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--c, var(--mark)); }

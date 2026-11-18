@@ -104,10 +104,10 @@ textarea.textarea:focus-visible { outline: none; border-color: var(--accent); }
 /* reader progress scrubber: slim track; the thumb swells while held and turns into a bookmark when it lands on one */
 .range.slim { height: 36px; --p: 0%; --ts: 1; }
 .range.slim::-webkit-slider-runnable-track { height: 3px; border-radius: 3px; background: linear-gradient(to right, var(--fg2) var(--p), var(--border) var(--p)); }
-.range.slim::-webkit-slider-thumb { width: 13px; height: 13px; margin-top: -5px; border: 0; border-radius: 50%; background: var(--tc, var(--fg)); transform: scale(var(--ts)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tc, var(--fg)) 16%, transparent), 0 2px 8px rgb(0 0 0 / 0.22); transition: transform 260ms cubic-bezier(0.34, 1.45, 0.5, 1), background-color 200ms var(--ease), box-shadow 200ms var(--ease); }
+.range.slim::-webkit-slider-thumb { width: 14px; height: 14px; margin-top: -5.5px; border: 0; border-radius: 50%; background: var(--tc, var(--fg)); transform: scale(var(--ts)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tc, var(--fg)) 16%, transparent), 0 2px 8px rgb(0 0 0 / 0.22); transition: transform 260ms cubic-bezier(0.34, 1.45, 0.5, 1), background-color 200ms var(--ease), box-shadow 200ms var(--ease); }
 .range.slim::-moz-range-track { height: 3px; border-radius: 3px; background: var(--border); }
 .range.slim::-moz-range-progress { height: 3px; border-radius: 3px; background: var(--fg2); }
-.range.slim::-moz-range-thumb { width: 13px; height: 13px; border: 0; background: var(--tc, var(--fg)); transform: scale(var(--ts)); transition: transform 260ms cubic-bezier(0.34, 1.45, 0.5, 1), background-color 200ms var(--ease); }
+.range.slim::-moz-range-thumb { width: 14px; height: 14px; border: 0; background: var(--tc, var(--fg)); transform: scale(var(--ts)); transition: transform 260ms cubic-bezier(0.34, 1.45, 0.5, 1), background-color 200ms var(--ease); }
 
 .row { display: flex; align-items: center; gap: 12px; }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

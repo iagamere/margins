@@ -463,7 +463,7 @@ export function ReaderScreen({ id }: { id: string }) {
     else info?.api.goToPercent(scrub);
     setScrub(null);
   };
-  const THUMB = 13;
+  const THUMB = 14;
   const span = Math.max(1, trackW - THUMB);
   const marks = bookmarks.map((b) => ({ b, f: Math.min(1, Math.max(0, isPdf ? pageFrac(b.page ?? 1) : b.percentage)) }));
   const markName = (b: AnnotationRecord) => b.title || (b.text ? b.text.slice(0, 28) : b.page ? t('reader.pageN', { n: n(b.page) }) : t('annot.bookmark'));
@@ -606,16 +606,23 @@ export function ReaderScreen({ id }: { id: string }) {
             )}
             <div className="mark-dots" aria-hidden>
               {marks.map(({ b, f }) => {
-                const left = trackW ? `${THUMB / 2 + f * span}px` : `calc(${f * 100}% + ${(0.5 - f) * THUMB}px)`;
-                // while the thumb is held the dots recede; the one the thumb has "become" disappears
-                const sc = scrub == null ? 1 : 0.7;
-                const hidden = scrub != null && (snapped === b.id || Math.abs(f - scrub) * span < 10);
+                const x0 = THUMB / 2 + f * span;
+                const left = trackW ? `${x0}px` : `calc(${f * 100}% + ${(0.5 - f) * THUMB}px)`;
+                // "peak" effect: while dragging, bookmarks swell with proximity to the thumb and
+                // reach the thumb's own size when it sits on them; further away they stay small.
+                let sc = 1;
+                if (scrub != null && trackW) {
+                  const d = Math.abs(x0 - (THUMB / 2 + scrub * span));
+                  const bell = Math.exp(-((d / 34) ** 2));
+                  sc = (5.5 + (THUMB * 1.3 - 5.5) * bell) / 7;
+                }
+                const hidden = scrub != null && snapped === b.id;
                 return <i key={b.id} className={b.text ? 'word' : ''} style={{ left, ['--s' as string]: sc, ['--o' as string]: hidden ? 0 : 1, ['--c' as string]: b.markColor ?? undefined }} />;
               })}
             </div>
             <input
               className="range slim"
-              style={{ ['--p' as string]: `${pct * 100}%`, ['--ts' as string]: scrub == null ? 1 : snappedMark ? 1.25 : 1.95, ['--tc' as string]: snappedMark ? snappedMark.b.markColor ?? 'var(--mark)' : undefined }}
+              style={{ ['--p' as string]: `${pct * 100}%`, ['--ts' as string]: scrub == null ? 1 : 1.3, ['--tc' as string]: snappedMark ? snappedMark.b.markColor ?? 'var(--mark)' : undefined }}
               type="range"
               min={0}
               max={1000}

@@ -120,11 +120,11 @@ export function TypographyControls({ showMode = true, format = 'epub', preview =
       <div className="setting">
         <div className="row-between"><span className="label">{t('typo.markColor')}</span></div>
         <div className="mark-swatches" role="group" aria-label={t('typo.markColor')}>
-          <button className="swatch auto" aria-pressed={s.markColor === 'auto'} onClick={() => set({ markColor: 'auto' })} aria-label={t('theme.auto')}>A</button>
+          <button className="mkc auto" aria-pressed={s.markColor === 'auto'} onClick={() => set({ markColor: 'auto' })} aria-label={t('theme.auto')}>A</button>
           {MARK_COLORS.map((c) => (
-            <button key={c} className="swatch" style={{ background: c }} aria-pressed={s.markColor === c} onClick={() => set({ markColor: c })} aria-label={c} />
+            <button key={c} className="mkc" style={{ background: c }} aria-pressed={s.markColor === c} onClick={() => set({ markColor: c })} aria-label={c} />
           ))}
-          <label className={'swatch custom' + (s.markColor !== 'auto' && !MARK_COLORS.includes(s.markColor) ? ' on' : '')} aria-label={t('typo.markCustom')} style={s.markColor !== 'auto' && !MARK_COLORS.includes(s.markColor) ? { background: s.markColor } : undefined}>
+          <label className={'mkc custom' + (s.markColor !== 'auto' && !MARK_COLORS.includes(s.markColor) ? ' on' : '')} aria-label={t('typo.markCustom')} style={s.markColor !== 'auto' && !MARK_COLORS.includes(s.markColor) ? { background: s.markColor } : undefined}>
             <input type="color" value={/^#[0-9a-f]{6}$/i.test(s.markColor) ? s.markColor : '#b0503f'} onChange={(e) => set({ markColor: e.target.value })} />
           </label>
         </div>
