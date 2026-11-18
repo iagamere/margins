@@ -442,7 +442,7 @@ export function ReaderScreen({ id }: { id: string }) {
   }
 
   return (
-    <div className="reader" data-theme={rtheme} data-format={format}>
+    <div className="reader" data-theme={rtheme} data-format={format} style={settings.markColor !== 'auto' ? ({ ['--mark' as string]: settings.markColor } as React.CSSProperties) : undefined}>
       <div className="reader-stage">
         {book && data && format === 'epub' && (
           <EpubView

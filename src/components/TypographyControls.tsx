@@ -5,6 +5,7 @@ import { DEFAULT_READING } from '../lib/settings';
 import { THEME_COLORS, resolveFont } from '../lib/readerCss';
 import type { ReadFont, ReaderTheme, ThemeName } from '../lib/types';
 
+const MARK_COLORS = ['#b0503f', '#c27a3a', '#a08a2f', '#5f8a5a', '#4a7ba6', '#7b62a8', '#b05a82'];
 const FONTS: ReadFont[] = ['auto', 'literata', 'sourceSerif', 'naskh', 'amiri', 'plexArabic', 'cairo', 'inter', 'original'];
 
 function Stepper({ label, value, min, max, step, onChange, format }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; format: (v: number) => string }) {
@@ -114,6 +115,18 @@ export function TypographyControls({ showMode = true, format = 'epub', preview =
             <button aria-pressed={s.textAlign === 'start'} onClick={() => set({ textAlign: 'start' })}><AlignLeft className="flip" size={17} aria-hidden="true" />{t('align.start')}</button>
             <button aria-pressed={s.textAlign === 'justify'} onClick={() => set({ textAlign: 'justify' })}><AlignJustify size={17} aria-hidden="true" />{t('align.justify')}</button>
           </div>
+        </div>
+      </div>
+      <div className="setting">
+        <div className="row-between"><span className="label">{t('typo.markColor')}</span></div>
+        <div className="mark-swatches" role="group" aria-label={t('typo.markColor')}>
+          <button className="swatch auto" aria-pressed={s.markColor === 'auto'} onClick={() => set({ markColor: 'auto' })} aria-label={t('theme.auto')}>A</button>
+          {MARK_COLORS.map((c) => (
+            <button key={c} className="swatch" style={{ background: c }} aria-pressed={s.markColor === c} onClick={() => set({ markColor: c })} aria-label={c} />
+          ))}
+          <label className={'swatch custom' + (s.markColor !== 'auto' && !MARK_COLORS.includes(s.markColor) ? ' on' : '')} aria-label={t('typo.markCustom')} style={s.markColor !== 'auto' && !MARK_COLORS.includes(s.markColor) ? { background: s.markColor } : undefined}>
+            <input type="color" value={/^#[0-9a-f]{6}$/i.test(s.markColor) ? s.markColor : '#b0503f'} onChange={(e) => set({ markColor: e.target.value })} />
+          </label>
         </div>
       </div>
       <button className="btn btn-block" onClick={reset} disabled={isDefault} style={isDefault ? { opacity: 0.5 } : undefined}>{t('typo.reset')}</button>

@@ -204,6 +204,8 @@ export const en = {
   'typo.weight': "Text weight",
   'typo.weightRegular': "Regular",
   'typo.weightBold': "Bold",
+  'typo.markColor': "Bookmark colour",
+  'typo.markCustom': "Custom colour",
   'typo.smaller': "Smaller text",
   'typo.larger': "Larger text",
   'align.auto': "Automatic",

@@ -206,6 +206,8 @@ export const ar: Dict = {
   'typo.weight': "سماكة الخط",
   'typo.weightRegular': "عادي",
   'typo.weightBold': "عريض",
+  'typo.markColor': "لون البوكمارك",
+  'typo.markCustom': "لون مخصص",
   'typo.smaller': "تصغير الخط",
   'typo.larger': "تكبير الخط",
   'align.auto': "تلقائي",

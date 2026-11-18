@@ -73,6 +73,8 @@ export interface Settings {
   textDir: TextDir;
   /** PDF text reflow only */
   textWeight: TextWeight;
+  /** bookmark marker colour: 'auto' follows the theme, otherwise a #rrggbb value */
+  markColor: string;
   pdfAdaptTheme: boolean;
   /** PDF: show extracted text re-flowed to the screen instead of the original pages */
   pdfReflow: boolean;

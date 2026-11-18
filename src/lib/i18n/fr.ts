@@ -206,6 +206,8 @@ export const fr: Dict = {
   'typo.weight': "Graisse du texte",
   'typo.weightRegular': "Normal",
   'typo.weightBold': "Gras",
+  'typo.markColor': "Couleur des repères",
+  'typo.markCustom': "Couleur personnalisée",
   'typo.smaller': "Texte plus petit",
   'typo.larger': "Texte plus grand",
   'align.auto': "Automatique",

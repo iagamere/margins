@@ -142,3 +142,10 @@
 .mark-dots i.word { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 2px; transform: rotate(45deg); }
 @keyframes dotIn { from { opacity: 0; scale: 0.2; } }
 .sel-dock .act.mark svg { color: var(--mark); }
+
+/* bookmark colour picker */
+.mark-swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-top: 4px; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 0; position: relative; display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--fg2); background: var(--bg2); box-shadow: inset 0 0 0 1px var(--border); transition: transform 160ms var(--ease), box-shadow 160ms var(--ease); cursor: pointer; }
+.swatch[aria-pressed='true'], .swatch.on { transform: scale(1.12); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg); }
+.swatch.custom { background: conic-gradient(#b0503f, #c27a3a, #a08a2f, #5f8a5a, #4a7ba6, #7b62a8, #b05a82, #b0503f); overflow: hidden; }
+.swatch.custom input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }

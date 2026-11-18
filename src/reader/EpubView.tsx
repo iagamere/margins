@@ -414,7 +414,8 @@ export function EpubView(props: EpubViewProps) {
     function syncBookmarks() {
       const r = renditionRef.current;
       if (!r) return;
-      const markColor = P.current.theme === 'dark' ? '#d98b7f' : P.current.theme === 'sepia' ? '#a4493d' : '#b0503f';
+      const mc = P.current.settings.markColor;
+      const markColor = mc && mc !== 'auto' ? mc : P.current.theme === 'dark' ? '#d98b7f' : P.current.theme === 'sepia' ? '#a4493d' : '#b0503f';
       const want = new Map<string, AnnotationRecord>();
       for (const a of P.current.annotations) if (a.type === 'bookmark' && a.cfiRange) want.set(a.id, a);
       for (const [id, cur] of appliedBm.current) {
@@ -510,7 +511,7 @@ export function EpubView(props: EpubViewProps) {
   /* ---------- annotations ---------- */
   useEffect(() => {
     syncRef.current?.();
-  }, [props.annotations, theme]);
+  }, [props.annotations, theme, settings.markColor]);
 
   const wrapStyle = {
     paddingInline: `max(${settings.margin}px, var(--safe-l))`,
