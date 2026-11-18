@@ -220,7 +220,19 @@ export function ReflowView(props: ReflowViewProps) {
     (async () => {
       try {
         await loadPdfjs();
-        const h = await openPdf(new Uint8Array(P.current.data.slice(0)));
+        let bytes = new Uint8Array(P.current.data.slice(0));
+        if (bytes.byteLength < 80 * 1024 * 1024) {
+          // Repair reversed Arabic ligatures (لا / لأ …) before text extraction.
+          try {
+            const { fixArabicLigatures } = await import('../lib/arabicFix');
+            const fixed = await fixArabicLigatures(bytes.slice(0));
+            if (fixed) bytes = fixed;
+          } catch {
+            /* fall back to the untouched file */
+          }
+        }
+        if (disposed) return;
+        const h = await openPdf(bytes);
         handle = h;
         if (disposed) {
           await h.dispose();
