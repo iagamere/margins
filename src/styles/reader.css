@@ -138,8 +138,8 @@
 
 /* bookmark dots on the progress line */
 .mark-dots { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.mark-dots i { position: absolute; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--c, var(--mark)); transform: scale(var(--s, 1)); transition: left 140ms var(--ease), transform 140ms var(--ease); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg) 90%, transparent); animation: dotIn 260ms var(--ease) both; }
-.mark-dots i.word { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 2px; transform: rotate(45deg) scale(var(--s, 1)); }
+.mark-dots i { position: absolute; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--c, var(--mark)); transform: scale(var(--s, 1)); opacity: var(--o, 1); transition: transform 240ms cubic-bezier(0.34, 1.45, 0.5, 1), opacity 160ms var(--ease); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg) 90%, transparent); animation: dotIn 260ms var(--ease) both; }
+.mark-dots i.word { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 1.5px; transform: rotate(45deg) scale(var(--s, 1)); }
 @keyframes dotIn { from { opacity: 0; scale: 0.2; } }
 .sel-dock .act.mark svg { color: var(--mark); }
 

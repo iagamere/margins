@@ -66,6 +66,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const snapId = useRef<string | null>(null);
+  const [snapped, setSnapped] = useState<string | null>(null);
   const [optPage, setOptPage] = useState<number | null>(null); // page we just jumped to, shown until the view reports it
   const [fs, setFs] = useState(false);
 
@@ -452,6 +453,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const commitScrub = () => {
     dragging.current = false;
     snapId.current = null;
+    setSnapped(null);
     if (scrub == null) return;
     liveGo.cancel();
     if (isPdf && scrubPage != null) {
@@ -465,6 +467,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const span = Math.max(1, trackW - THUMB);
   const marks = bookmarks.map((b) => ({ b, f: Math.min(1, Math.max(0, isPdf ? pageFrac(b.page ?? 1) : b.percentage)) }));
   const markName = (b: AnnotationRecord) => b.title || (b.text ? b.text.slice(0, 28) : b.page ? t('reader.pageN', { n: n(b.page) }) : t('annot.bookmark'));
+  const snappedMark = scrub != null ? marks.find((m) => m.b.id === snapped) : undefined;
   const nearMark = scrub != null && trackW ? marks.filter((m) => Math.abs(m.f - scrub) * span < 14).sort((a, c) => Math.abs(a.f - scrub) - Math.abs(c.f - scrub))[0] : undefined;
   const bubbleText = scrub == null ? '' : isPdf ? `${n(scrubPage ?? 1)}` : `${n(Math.round(scrub * 100))}%`;
   const footLeft = format === 'epub' ? pos?.chapter ?? '' : '';
@@ -603,31 +606,16 @@ export function ReaderScreen({ id }: { id: string }) {
             )}
             <div className="mark-dots" aria-hidden>
               {marks.map(({ b, f }) => {
-                let left = `calc(${f * 100}% + ${(0.5 - f) * THUMB}px)`;
-                let sc = 1;
-                if (trackW) {
-                  const x0 = THUMB / 2 + f * span;
-                  let x = x0;
-                  if (scrub != null) {
-                    // fisheye around the thumb: the nearest bookmarks grow and spread apart, the rest recede
-                    const xt = THUMB / 2 + scrub * span;
-                    const d = x0 - xt;
-                    const ad = Math.abs(d);
-                    const R = 64;
-                    const k = 2.6;
-                    if (ad < R) {
-                      x = xt + Math.sign(d || 1) * ((R * (1 + k) * ad) / (k * ad + R));
-                      sc = 0.8 + 1.5 * (1 - ad / R) ** 2;
-                    } else sc = 0.8;
-                  }
-                  left = `${Math.min(trackW - 3, Math.max(3, x))}px`;
-                }
-                return <i key={b.id} className={b.text ? 'word' : ''} style={{ left, ['--s' as string]: sc, ['--c' as string]: b.markColor ?? undefined }} />;
+                const left = trackW ? `${THUMB / 2 + f * span}px` : `calc(${f * 100}% + ${(0.5 - f) * THUMB}px)`;
+                // while the thumb is held the dots recede; the one the thumb has "become" disappears
+                const sc = scrub == null ? 1 : 0.7;
+                const hidden = scrub != null && (snapped === b.id || Math.abs(f - scrub) * span < 10);
+                return <i key={b.id} className={b.text ? 'word' : ''} style={{ left, ['--s' as string]: sc, ['--o' as string]: hidden ? 0 : 1, ['--c' as string]: b.markColor ?? undefined }} />;
               })}
             </div>
             <input
               className="range slim"
-              style={{ ['--p' as string]: `${pct * 100}%` }}
+              style={{ ['--p' as string]: `${pct * 100}%`, ['--ts' as string]: scrub == null ? 1 : snappedMark ? 1.25 : 1.95, ['--tc' as string]: snappedMark ? snappedMark.b.markColor ?? 'var(--mark)' : undefined }}
               type="range"
               min={0}
               max={1000}
@@ -644,7 +632,9 @@ export function ReaderScreen({ id }: { id: string }) {
                 let v = Number(e.target.value) / 1000;
                 let hit: string | null = null;
                 if (dragging.current && settings.magnet && trackW) {
-                  let best = 11 / span; // pull radius: 11px
+                  // a detent, not a pit: the pull is about one page wide
+                  const pagePx = isPdf && total > 1 ? span / (total - 1) : 4;
+                  let best = Math.min(6, Math.max(2.5, pagePx)) / span;
                   for (const m of marks) {
                     const d = Math.abs(m.f - v);
                     if (d < best) {
@@ -656,6 +646,7 @@ export function ReaderScreen({ id }: { id: string }) {
                 }
                 if (hit !== snapId.current) {
                   snapId.current = hit;
+                  setSnapped(hit);
                   if (hit) navigator.vibrate?.(8);
                 }
                 setScrub(v);
