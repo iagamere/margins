@@ -207,6 +207,7 @@ export const en = {
   'typo.markColor': "Bookmark colour",
   'typo.markCustom': "Custom colour",
   'bm.title': "Bookmark",
+  'scrub.fine': "Fine navigation",
   'bm.name': "Name",
   'bm.namePh': "Name this bookmark",
   'bm.color': "Colour",

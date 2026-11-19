@@ -169,3 +169,8 @@
 .bm-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .bm-foot .btn { min-height: 40px; display: inline-flex; align-items: center; gap: 6px; }
 .bm-foot .danger-ghost { color: var(--danger); background: transparent; border-color: transparent; }
+
+/* precision mode: page ticks of the magnified stretch */
+.mark-ticks { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.mark-ticks u { position: absolute; top: 50%; width: 1.5px; height: 9px; margin: -4.5px 0 0 -0.75px; border-radius: 1px; background: var(--fg2); opacity: 0.55; text-decoration: none; animation: tickIn 220ms var(--ease) both; }
+@keyframes tickIn { from { opacity: 0; transform: scaleY(0.2); } }

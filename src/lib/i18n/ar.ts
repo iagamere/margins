@@ -209,6 +209,7 @@ export const ar: Dict = {
   'typo.markColor': "لون البوكمارك",
   'typo.markCustom': "لون مخصص",
   'bm.title': "بوكمارك",
+  'scrub.fine': "تنقل دقيق",
   'bm.name': "الاسم",
   'bm.namePh': "سمِّ هذا البوكمارك",
   'bm.color': "اللون",

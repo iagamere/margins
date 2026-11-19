@@ -209,6 +209,7 @@ export const fr: Dict = {
   'typo.markColor': "Couleur des repères",
   'typo.markCustom': "Couleur personnalisée",
   'bm.title': "Repère",
+  'scrub.fine': "Navigation précise",
   'bm.name': "Nom",
   'bm.namePh': "Nommer ce repère",
   'bm.color': "Couleur",

@@ -67,6 +67,13 @@ export function ReaderScreen({ id }: { id: string }) {
   const dragging = useRef(false);
   const downX = useRef<number | null>(null);
   const moved = useRef(false);
+  /* precision mode: hold still between two bookmarks and that stretch is magnified across the track */
+  type Zoom = { a: number; b: number; ax: number; av: number; k: number };
+  const [zoom, setZoom] = useState<Zoom | null>(null);
+  const zoomRef = useRef<Zoom | null>(null);
+  const dwell = useRef<{ t?: ReturnType<typeof setTimeout>; x: number }>({ x: 0 });
+  const lastMove = useRef({ x: 0, t: 0, v: 0 });
+  const scrubRef = useRef<number | null>(null);
   const snapId = useRef<string | null>(null);
   const [snapped, setSnapped] = useState<string | null>(null);
   const [optPage, setOptPage] = useState<number | null>(null); // page we just jumped to, shown until the view reports it
@@ -452,7 +459,13 @@ export function ReaderScreen({ id }: { id: string }) {
   const pageFrac = (pg: number) => (total > 1 ? (pg - 1) / (total - 1) : 0);
   const scrubPage = scrub != null && total ? Math.min(total, Math.max(1, Math.round(scrub * (total - 1)) + 1)) : null;
   const pct = scrub ?? (isPdf ? pageFrac(curPage) : pos?.percentage ?? book?.percentage ?? 0);
+  const setZoomBoth = (z: Zoom | null) => {
+    zoomRef.current = z;
+    setZoom(z);
+  };
   const commitScrub = () => {
+    clearTimeout(dwell.current.t);
+    setZoomBoth(null);
     dragging.current = false;
     snapId.current = null;
     setSnapped(null);
@@ -473,6 +486,42 @@ export function ReaderScreen({ id }: { id: string }) {
   const curMark = bookmarksHere[0];
   const thumbColor = scrub != null ? (snappedMark ? snappedMark.b.markColor ?? 'var(--mark)' : undefined) : curMark ? curMark.markColor ?? 'var(--mark)' : undefined;
   const nearMark = scrub != null && trackW ? marks.filter((m) => Math.abs(m.f - scrub) * span < 14).sort((a, c) => Math.abs(a.f - scrub) - Math.abs(c.f - scrub))[0] : undefined;
+  scrubRef.current = scrub;
+  const zoomOn = zoom != null && scrub != null;
+  const zx = (f: number) => (zoom ? zoom.ax + (f - zoom.av) * span * zoom.k : 0);
+  const thumbX = trackW ? (zoomOn ? Math.min(trackW - THUMB / 2, Math.max(THUMB / 2, zx(scrub!))) : THUMB / 2 + pct * span) : 0;
+  const armDwell = (x: number) => {
+    clearTimeout(dwell.current.t);
+    dwell.current.x = x;
+    if (marks.length < 2 || !trackRef.current) return;
+    dwell.current.t = setTimeout(() => {
+      const v = scrubRef.current;
+      const el = trackRef.current;
+      if (v == null || !el || zoomRef.current) return;
+      const fs = [...new Set(marks.map((m) => m.f))].sort((p, q) => p - q);
+      let i = -1;
+      fs.forEach((f, idx) => {
+        if (f <= v + 1e-6) i = idx;
+      });
+      let a: number;
+      let b: number;
+      if (i < 0 || fs.length < 2) return; // before the first bookmark: nothing to magnify
+      if (i === fs.length - 1) {
+        a = fs[i - 1];
+        b = fs[i];
+        if (v > b + 1e-6) return; // after the last bookmark
+      } else {
+        a = fs[i];
+        b = fs[i + 1];
+      }
+      const pages = isPdf ? (b - a) * (total - 1) : 20;
+      if (pages < 3) return;
+      const L0 = Math.max(1, (b - a) * span);
+      const k = isPdf ? Math.min(80, Math.max(3, (7 * pages) / L0)) : 5;
+      setZoomBoth({ a, b, ax: dwell.current.x - el.getBoundingClientRect().left, av: v, k });
+      navigator.vibrate?.(14);
+    }, 450);
+  };
   const bubbleText = scrub == null ? '' : isPdf ? `${n(scrubPage ?? 1)}` : `${n(Math.round(scrub * 100))}%`;
   const footLeft = format === 'epub' ? pos?.chapter ?? '' : '';
   const footRight = format === 'epub' ? `${n(Math.round(pct * 100))}%` : total ? `${n(scrubPage ?? curPage)} / ${n(total)}` : '';
@@ -597,8 +646,13 @@ export function ReaderScreen({ id }: { id: string }) {
           </button>
           <div className="scrub-track" ref={trackRef}>
             {scrub != null && (
-              <div className="scrub-bubble" style={{ left: `clamp(56px, calc(${pct * 100}% + ${(0.5 - pct) * THUMB}px), calc(100% - 56px))` }} aria-hidden>
-                {nearMark && (
+              <div className="scrub-bubble" style={{ left: zoomOn ? `clamp(56px, ${thumbX}px, calc(100% - 56px))` : `clamp(56px, calc(${pct * 100}% + ${(0.5 - pct) * THUMB}px), calc(100% - 56px))` }} aria-hidden>
+                {zoomOn && (
+                  <span className="bm-name">
+                    <span>{t('scrub.fine')}</span>
+                  </span>
+                )}
+                {!zoomOn && nearMark && (
                   <span className="bm-name" style={{ ['--c' as string]: nearMark.b.markColor ?? 'var(--mark)' }}>
                     <i />
                     <span dir="auto">{markName(nearMark.b)}</span>
@@ -614,28 +668,39 @@ export function ReaderScreen({ id }: { id: string }) {
                 <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -6.5" />
               </filter>
             </svg>
-            <div className={'mark-dots' + (scrub != null ? ' goo' : '')} aria-hidden>
+            {zoomOn && isPdf && (
+              <div className="mark-ticks" aria-hidden>
+                {Array.from({ length: Math.max(0, Math.round((zoom!.b - zoom!.a) * (total - 1)) + 1) }, (_, j) => {
+                  const f = zoom!.a + j / (total - 1);
+                  const x = zx(f);
+                  return x < 2 || x > trackW - 2 ? null : <u key={j} style={{ left: `${x}px` }} />;
+                })}
+              </div>
+            )}
+            <div className={'mark-dots' + (scrub != null && !zoomOn ? ' goo' : '')} aria-hidden>
               <b
                 className="mk-thumb"
                 style={{
-                  left: trackW ? `${THUMB / 2 + pct * span}px` : `calc(${pct * 100}% + ${(0.5 - pct) * THUMB}px)`,
-                  ['--ts' as string]: scrub == null ? 1 : 1.3,
+                  left: trackW ? `${thumbX}px` : `calc(${pct * 100}% + ${(0.5 - pct) * THUMB}px)`,
+                  ['--ts' as string]: scrub == null ? 1 : zoomOn ? 1.55 : 1.3,
                   ['--tc' as string]: thumbColor,
                 }}
               />
               {marks.map(({ b, f }) => {
-                const x0 = THUMB / 2 + f * span;
+                const x0 = zoomOn ? zx(f) : THUMB / 2 + f * span;
                 const left = trackW ? `${x0}px` : `calc(${f * 100}% + ${(0.5 - f) * THUMB}px)`;
+                const isEnd = zoomOn && (Math.abs(f - zoom!.a) < 1e-6 || Math.abs(f - zoom!.b) < 1e-6);
+                const offTrack = zoomOn && (!isEnd || x0 < 0 || x0 > trackW);
                 // "peak" effect: while dragging, bookmarks swell with proximity to the thumb and
                 // reach the thumb's own size when it sits on them; further away they stay small.
                 let sc = 1;
-                if (scrub != null && trackW) {
+                if (scrub != null && trackW && !zoomOn) {
                   const d = Math.abs(x0 - (THUMB / 2 + scrub * span));
                   const bell = Math.exp(-((d / 34) ** 2));
                   sc = (5.5 + (THUMB * 1.3 - 5.5) * bell) / 7;
                 }
-                const hidden = scrub != null && snapped === b.id;
-                return <i key={b.id} className={b.text ? 'word' : ''} style={{ left, ['--s' as string]: sc, ['--o' as string]: hidden ? 0 : 1, ['--c' as string]: b.markColor ?? undefined }} />;
+                const hidden = (scrub != null && snapped === b.id && !zoomOn) || offTrack;
+                return <i key={b.id} className={b.text ? 'word' : ''} style={{ left, ['--s' as string]: zoomOn && isEnd ? 1.5 : sc, ['--o' as string]: hidden ? 0 : 1, ['--c' as string]: b.markColor ?? undefined }} />;
               })}
             </div>
             <input
@@ -653,12 +718,36 @@ export function ReaderScreen({ id }: { id: string }) {
                 dragging.current = true;
                 downX.current = e.clientX;
                 moved.current = false;
+                lastMove.current = { x: e.clientX, t: e.timeStamp, v: 0 };
+                armDwell(e.clientX);
                 if (trackRef.current) setTrackW(trackRef.current.getBoundingClientRect().width);
               }}
               onPointerMove={(e) => {
                 if (downX.current != null && Math.abs(e.clientX - downX.current) >= 8) moved.current = true;
+                if (downX.current == null) return;
+                const lm = lastMove.current;
+                const sp = Math.abs(e.clientX - lm.x) / Math.max(1, e.timeStamp - lm.t);
+                lastMove.current = { x: e.clientX, t: e.timeStamp, v: lm.v * 0.6 + sp * 0.4 };
+                const z = zoomRef.current;
+                if (z) {
+                  if (lastMove.current.v > 0.5) {
+                    // a quick or ordinary swipe leaves precision mode and the slider behaves normally again
+                    setZoomBoth(null);
+                    armDwell(e.clientX);
+                    return;
+                  }
+                  const el = trackRef.current;
+                  if (!el) return;
+                  const xr = e.clientX - el.getBoundingClientRect().left;
+                  const v = Math.min(z.b, Math.max(z.a, z.av + (xr - z.ax) / (span * z.k)));
+                  setScrub(v);
+                  liveGo(v);
+                  return;
+                }
+                if (Math.abs(e.clientX - dwell.current.x) > 6) armDwell(e.clientX);
               }}
               onChange={(e) => {
+                if (zoomRef.current) return;
                 let v = Number(e.target.value) / 1000;
                 let hit: string | null = null;
                 if (dragging.current && settings.magnet && trackW) {
@@ -700,6 +789,8 @@ export function ReaderScreen({ id }: { id: string }) {
                   }
                   if (best) {
                     liveGo.cancel();
+                    clearTimeout(dwell.current.t);
+                    setZoomBoth(null);
                     dragging.current = false;
                     snapId.current = null;
                     setSnapped(null);
