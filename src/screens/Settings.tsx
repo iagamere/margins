@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { requestPersistence, storageEstimate } from '../lib/db';
 import { formatBytes } from '../lib/utils';
 import { isNative } from '../lib/platform';
+import { CURRENT_BUILD } from '../lib/updater';
 import type { AppTheme, Lang } from '../lib/types';
 
 const THEMES: Array<{ id: AppTheme; bg: string }> = [
@@ -79,7 +80,7 @@ export function SettingsScreen() {
 
         <h2 className="eyebrow section-title">{t('settings.about')}</h2>
         <div className="group">
-          <div className="setting-row"><span className="label">Margins</span><span className="muted">1.0.0</span></div>
+          <div className="setting-row"><span className="label">Margins</span><span className="muted">1.0.{CURRENT_BUILD || 0}</span></div>
           <div className="setting"><div className="hint muted" style={{ fontSize: 13 }}>{t('app.tagline')} · {t('settings.privacy')}</div></div>
         </div>
       </div>

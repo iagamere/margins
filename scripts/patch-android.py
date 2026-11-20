@@ -1,5 +1,5 @@
 """Small post-`cap add android` tweaks. Every step is optional and never fails the build."""
-import pathlib, re
+import os, pathlib, re
 
 root = pathlib.Path(__file__).resolve().parent.parent / "android"
 
@@ -23,7 +23,11 @@ def manifest(s):
 patch("app/src/main/AndroidManifest.xml", manifest)
 
 # Human friendly versionName.
+BUILD = int(os.environ.get("BUILD_NUMBER", "1") or 1)
+
 def gradle(s):
-    return re.sub(r'versionName\s+"[^"]*"', 'versionName "1.0.0"', s)
+    # versionCode must grow with every build so Android accepts the APK as an update.
+    s = re.sub(r'versionCode\s*=?\s*\d+', f'versionCode {BUILD}', s)
+    return re.sub(r'versionName\s*=?\s*"[^"]*"', f'versionName "1.0.{BUILD}"', s)
 
 patch("app/build.gradle", gradle)

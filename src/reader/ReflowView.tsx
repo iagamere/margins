@@ -45,6 +45,26 @@ function Highlighted({ text, q }: { text: string; q: string }) {
   return <>{out}</>;
 }
 
+/* Bounding box of everything that is not (near) white on a rendered page, in canvas pixels. */
+function contentBox(ctx: CanvasRenderingContext2D, w: number, h: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  const data = ctx.getImageData(0, 0, w, h).data;
+  const T = 242; // a channel below this counts as "ink"
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (data[i] < T || data[i + 1] < T || data[i + 2] < T) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return null;
+  return { x0, y0, x1: x1 + 1, y1: y1 + 1 };
+}
+
 /* The untouched PDF page, drawn on demand inside the text flow (images, tables, scans). */
 function OriginalPage({ doc, num, adapt }: { doc: any; num: number; adapt: 'none' | 'dark' | 'sepia' }) {
   const host = useRef<HTMLDivElement>(null);
@@ -60,17 +80,49 @@ function OriginalPage({ doc, num, adapt }: { doc: any; num: number; adapt: 'none
         const page = await doc.getPage(num);
         const base = page.getViewport({ scale: 1 });
         const cssW = Math.max(200, h.clientWidth || 320);
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const vp = page.getViewport({ scale: (cssW / base.width) * dpr });
+
+        // 1) Cheap low-res pass to find the real content box (no white page margins).
+        const probeScale = 360 / base.width;
+        const pvp = page.getViewport({ scale: probeScale });
+        const pc = document.createElement('canvas');
+        pc.width = Math.floor(pvp.width);
+        pc.height = Math.floor(pvp.height);
+        const pctx = pc.getContext('2d', { alpha: false, willReadFrequently: true })!;
+        const ptask = page.render({ canvasContext: pctx, viewport: pvp });
+        task = ptask;
+        await ptask.promise;
+        if (cancelled) return;
+        const box = contentBox(pctx, pc.width, pc.height);
+        pc.width = 0;
+
+        // Content rectangle in PDF points (the whole page when it is blank / edge to edge).
+        const pad = 2 / probeScale;
+        const x0 = box ? Math.max(0, box.x0 / probeScale - pad) : 0;
+        const y0 = box ? Math.max(0, box.y0 / probeScale - pad) : 0;
+        const x1 = box ? Math.min(base.width, box.x1 / probeScale + pad) : base.width;
+        const y1 = box ? Math.min(base.height, box.y1 / probeScale + pad) : base.height;
+        const bw = Math.max(1, x1 - x0);
+        const bh = Math.max(1, y1 - y0);
+
+        // 2) Natural size: fill the column, but never blow a small picture up by more than 1.5x the page-fit scale.
+        const pageFit = cssW / base.width;
+        const cssScale = Math.min(cssW / bw, pageFit * 1.5);
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+        dpr = Math.min(dpr, 4096 / (bw * cssScale), 4096 / (bh * cssScale));
+        const rs = cssScale * dpr;
+        const vp = page.getViewport({ scale: rs, offsetX: -x0 * rs, offsetY: -y0 * rs });
         const c = document.createElement('canvas');
-        c.width = Math.floor(vp.width);
-        c.height = Math.floor(vp.height);
+        c.width = Math.max(1, Math.ceil(bw * rs));
+        c.height = Math.max(1, Math.ceil(bh * rs));
+        c.style.width = Math.round(bw * cssScale) + 'px';
+        c.style.aspectRatio = `${c.width} / ${c.height}`;
         task = page.render({ canvasContext: c.getContext('2d', { alpha: false })!, viewport: vp });
         await task.promise;
         if (cancelled) {
           c.width = 0;
           return;
         }
+        h.style.minHeight = '0';
         h.replaceChildren(c);
         page.cleanup?.();
       } catch (e: any) {

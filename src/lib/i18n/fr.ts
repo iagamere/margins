@@ -232,4 +232,7 @@ export const fr: Dict = {
   'err.importFailed': 'Une erreur est survenue lors de l’enregistrement de « {name} ».',
   'err.restoreFailed': 'Le fichier de ce livre n’a pas pu être chargé depuis le stockage. Il a peut-être été effacé ; essayez de l’importer à nouveau.',
   'err.storageUnavailable': 'Le stockage local est indisponible : les livres ne peuvent pas être enregistrés pendant cette session.',
+  'update.available': 'Une nouvelle version est disponible',
+  'update.action': 'Mettre à jour',
+  'update.later': 'Plus tard',
 };

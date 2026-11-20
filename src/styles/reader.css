@@ -131,7 +131,7 @@
 .rf-orig-btn[aria-pressed='true'] { color: var(--accent-ink); border-color: var(--accent); }
 .rf-loading { display: flex; justify-content: center; padding: 40px 0; }
 .rf-note { font-family: var(--font-ui); font-size: 13px; margin: 0 0 10px; }
-.rf-orig canvas { width: 100%; height: auto; display: block; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); background: #fff; }
+.rf-orig canvas { display: block; max-width: 100%; height: auto; margin-inline: auto; border-radius: 4px; background: transparent; }
 .rf-orig.dark-adapt canvas { filter: invert(0.9) hue-rotate(180deg) brightness(0.95); }
 .rf-orig.sepia-adapt canvas { filter: sepia(0.35) brightness(0.96) contrast(0.96); }
 .rf-page mark { background: color-mix(in srgb, var(--accent2) 45%, transparent); color: inherit; border-radius: 2px; }

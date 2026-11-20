@@ -27,7 +27,16 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      # Same signing key on every build => Android installs each new APK as an UPDATE (no uninstall needed).
+      - name: Use the fixed signing key
+        run: |
+          mkdir -p ~/.android
+          cp keystore/debug.keystore ~/.android/debug.keystore
+
       - name: Build web app
+        env:
+          VITE_BUILD_NUMBER: ${{ github.run_number }}
+          VITE_GH_REPO: ${{ github.repository }}
         run: npm run build
 
       - name: Add Android platform
@@ -41,6 +50,8 @@ jobs:
         run: npx cap sync android
 
       - name: Prepare Android project
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
         run: python3 scripts/patch-android.py
 
       - name: Build debug APK
@@ -64,5 +75,5 @@ jobs:
           gh release delete latest --cleanup-tag --yes || true
           gh release create latest out/Margins.apk \
             --title "Margins (latest build)" \
-            --notes "Debug build of commit ${GITHUB_SHA::7}. Download Margins.apk and install it on your Android phone." \
+            --notes "build:${{ github.run_number }} — commit ${GITHUB_SHA::7}. Download Margins.apk and install it on your Android phone." \
             --target "$GITHUB_SHA"

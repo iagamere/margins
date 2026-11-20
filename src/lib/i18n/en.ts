@@ -230,6 +230,9 @@ export const en = {
   'err.importFailed': 'Something went wrong while saving “{name}”.',
   'err.restoreFailed': 'This book’s file could not be loaded from storage. It may have been cleared; try importing it again.',
   'err.storageUnavailable': 'Local storage is unavailable, so books cannot be saved in this session.',
+  'update.available': 'A new version is available',
+  'update.action': 'Update',
+  'update.later': 'Later',
 } as const;
 
 export type Dict = { [K in keyof typeof en]: string };

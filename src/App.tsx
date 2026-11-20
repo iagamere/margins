@@ -9,6 +9,7 @@ import type { ThemeName } from './lib/types';
 import { BottomNav, SideNav } from './components/Nav';
 import { DropZone } from './components/DropZone';
 import { ImportBanner, Toasts } from './components/Toasts';
+import { UpdateBanner } from './components/UpdateBanner';
 import { LibraryScreen } from './screens/Library';
 import { ContinueScreen } from './screens/Continue';
 import { DetailsScreen } from './screens/Details';
@@ -88,6 +89,7 @@ export function App() {
       </div>
       <DropZone />
       <ImportBanner />
+      <UpdateBanner />
       <Toasts />
     </div>
   );

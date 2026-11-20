@@ -232,4 +232,7 @@ export const ar: Dict = {
   'err.importFailed': 'حدث خطأ أثناء حفظ «{name}».',
   'err.restoreFailed': 'تعذّر تحميل ملف هذا الكتاب من التخزين. ربما تم مسحه؛ جرّب استيراده مجددًا.',
   'err.storageUnavailable': 'التخزين المحلي غير متاح، لذا لا يمكن حفظ الكتب في هذه الجلسة.',
+  'update.available': 'يتوفر إصدار جديد',
+  'update.action': 'تحديث',
+  'update.later': 'لاحقًا',
 };
