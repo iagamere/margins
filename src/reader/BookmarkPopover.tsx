@@ -3,6 +3,7 @@ import { Bookmark, Trash2, X } from 'lucide-react';
 import { useT } from '../lib/i18n';
 import { pushBackHandler } from '../lib/backStack';
 import { MARK_COLORS } from '../components/TypographyControls';
+import { ColorChoice } from '../components/ColorPicker';
 import type { AnnotationRecord } from '../lib/types';
 
 /** Small anchored card to name, colour and annotate a bookmark. */
@@ -49,7 +50,6 @@ export function BookmarkPopover({
     setColor(c);
     save.current({ markColor: c === 'auto' ? undefined : c });
   };
-  const custom = color !== 'auto' && !MARK_COLORS.includes(color);
 
   return (
     <>
@@ -75,15 +75,14 @@ export function BookmarkPopover({
           }}
           onKeyDown={(e) => e.key === 'Enter' && close()}
         />
-        <div className="mark-swatches" role="group" aria-label={t('bm.color')}>
-          <button className="mkc auto" aria-pressed={color === 'auto'} onClick={() => pick('auto')} aria-label={t('theme.auto')}>A</button>
-          {MARK_COLORS.map((c) => (
-            <button key={c} className="mkc" style={{ background: c }} aria-pressed={color === c} onClick={() => pick(c)} aria-label={c} />
-          ))}
-          <label className={'mkc custom' + (custom ? ' on' : '')} aria-label={t('typo.markCustom')} style={custom ? { background: color } : undefined}>
-            <input type="color" value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#b0503f'} onChange={(e) => pick(e.target.value)} />
-          </label>
-        </div>
+        <ColorChoice
+          label={t('bm.color')}
+          value={color}
+          presets={MARK_COLORS}
+          noneLabel={t('theme.auto')}
+          noneText="A"
+          onChange={(c) => pick(c ?? 'auto')}
+        />
         <textarea
           className="bm-input"
           rows={3}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Palette, Trash2, Check, Ban, BookImage } from 'lucide-react';
+import { ImagePlus, Trash2, BookImage } from 'lucide-react';
+import { ColorChoice } from './ColorPicker';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useObjectUrl } from './BookCover';
 import { useT } from '../lib/i18n';
@@ -124,7 +125,6 @@ export function ShelfDialog({ title, confirmLabel, initial, preferBookIds, onSub
     onSubmit({ name: name.trim(), color, image, ratio: image ? ratio : undefined, dynamic: image ? dynamic : false });
   };
 
-  const custom = color && !SHELF_COLORS.includes(color) ? color : undefined;
   return (
     <ConfirmDialog title={title} confirmLabel={confirmLabel} onConfirm={submit} onCancel={onCancel}>
       <input
@@ -141,20 +141,14 @@ export function ShelfDialog({ title, confirmLabel, initial, preferBookIds, onSub
 
       <div className="shelf-field">
         <div className="lbl">{t('shelf.color')}</div>
-        <div className={'swatches' + (dynamic ? ' disabled' : '')} role="group" aria-label={t('shelf.color')}>
-          <button type="button" className="swatch none" aria-pressed={!color} aria-label={t('shelf.colorNone')} title={t('shelf.colorNone')} onClick={() => setColor(undefined)}>
-            <Ban size={16} aria-hidden="true" />
-          </button>
-          {SHELF_COLORS.map((c) => (
-            <button key={c} type="button" className="swatch" style={{ background: c }} aria-pressed={color === c} aria-label={c} onClick={() => setColor(c)}>
-              {color === c && <Check size={16} strokeWidth={3} aria-hidden="true" />}
-            </button>
-          ))}
-          <label className="swatch custom" style={custom ? { background: custom } : undefined} title={t('shelf.colorCustom')} aria-label={t('shelf.colorCustom')}>
-            {custom ? <Check size={16} strokeWidth={3} aria-hidden="true" /> : <Palette size={16} aria-hidden="true" />}
-            <input type="color" value={color ?? '#78816c'} onChange={(e) => setColor(e.target.value)} />
-          </label>
-        </div>
+        <ColorChoice
+          label={t('shelf.color')}
+          value={color}
+          presets={SHELF_COLORS}
+          noneLabel={t('shelf.colorNone')}
+          disabled={dynamic}
+          onChange={setColor}
+        />
       </div>
 
       <div className="shelf-field">

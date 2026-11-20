@@ -1,4 +1,5 @@
 import type { AccentName, ThemeName } from './types';
+import { hexToRgb, isHex, rgbToHsl } from './color';
 
 /** Stock (olive) colours — the same values as tokens.css. */
 export const THEME_COLORS: Record<ThemeName, { bg: string; fg: string; fg2: string; accent: string }> = {
@@ -22,7 +23,24 @@ export const ACCENTS: Record<AccentName, { swatch: string; hue: number; light: {
   plum: { swatch: '#8d7396', hue: 285, light: { accent: '#8d7396', ink: '#755e7d' }, dark: '#bba1c3' },
   rose: { swatch: '#9c707b', hue: 345, light: { accent: '#9c707b', ink: '#835b65' }, dark: '#c99faa' },
   cocoa: { swatch: '#907966', hue: 26, light: { accent: '#907966', ink: '#766253' }, dark: '#bda693' },
+  // filled in by setCustomAccent()
+  custom: { swatch: '#6b7fa8', hue: 220, light: null, dark: null },
 };
+
+export const PRESET_ACCENTS = (Object.keys(ACCENTS) as AccentName[]).filter((a) => a !== 'custom');
+
+/** Derives a full muted accent (light / sepia / dark shades and the tint hue) from any colour the user picked. */
+export function setCustomAccent(hex: string) {
+  if (!isHex(hex)) return;
+  const [h, s0] = rgbToHsl(...hexToRgb(hex));
+  const s = Math.min(0.5, Math.max(0.22, s0));
+  ACCENTS.custom = {
+    swatch: hex,
+    hue: h,
+    light: { accent: hsl(h, s, 0.52), ink: hsl(h, s, 0.4) },
+    dark: hsl(h, s, 0.7),
+  };
+}
 
 export const ACCENT_NAMES = Object.keys(ACCENTS) as AccentName[];
 

@@ -4,6 +4,7 @@ import { useT } from '../lib/i18n';
 import { DEFAULT_READING } from '../lib/settings';
 import { resolveFont } from '../lib/readerCss';
 import { themeColors } from '../lib/accents';
+import { ColorChoice } from './ColorPicker';
 import type { ReadFont, ReaderTheme, ThemeName } from '../lib/types';
 
 export const MARK_COLORS = ['#b0503f', '#c27a3a', '#a08a2f', '#5f8a5a', '#4a7ba6', '#7b62a8', '#b05a82'];
@@ -120,15 +121,14 @@ export function TypographyControls({ showMode = true, format = 'epub', preview =
       </div>
       <div className="setting">
         <div className="row-between"><span className="label">{t('typo.markColor')}</span></div>
-        <div className="mark-swatches" role="group" aria-label={t('typo.markColor')}>
-          <button className="mkc auto" aria-pressed={s.markColor === 'auto'} onClick={() => set({ markColor: 'auto' })} aria-label={t('theme.auto')}>A</button>
-          {MARK_COLORS.map((c) => (
-            <button key={c} className="mkc" style={{ background: c }} aria-pressed={s.markColor === c} onClick={() => set({ markColor: c })} aria-label={c} />
-          ))}
-          <label className={'mkc custom' + (s.markColor !== 'auto' && !MARK_COLORS.includes(s.markColor) ? ' on' : '')} aria-label={t('typo.markCustom')} style={s.markColor !== 'auto' && !MARK_COLORS.includes(s.markColor) ? { background: s.markColor } : undefined}>
-            <input type="color" value={/^#[0-9a-f]{6}$/i.test(s.markColor) ? s.markColor : '#b0503f'} onChange={(e) => set({ markColor: e.target.value })} />
-          </label>
-        </div>
+        <ColorChoice
+          label={t('typo.markColor')}
+          value={s.markColor}
+          presets={MARK_COLORS}
+          noneLabel={t('theme.auto')}
+          noneText="A"
+          onChange={(c) => set({ markColor: c ?? 'auto' })}
+        />
       </div>
       <div className="setting-row">
         <div><div className="label">{t('typo.magnet')}</div><div className="hint">{t('typo.magnetHint')}</div></div>

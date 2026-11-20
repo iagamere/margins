@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { BookRecord } from '../lib/types';
 import { hashIndex } from '../lib/utils';
 
-const PALETTE = ['#6f7a62', '#8a6f55', '#5c6b73', '#7d5f66', '#4f6359', '#8c7a4f', '#5f5a73', '#76604a'];
+export const PALETTE = ['#6f7a62', '#8a6f55', '#5c6b73', '#7d5f66', '#4f6359', '#8c7a4f', '#5f5a73', '#76604a'];
 
 export function useObjectUrl(blob?: Blob): string | undefined {
   const [url, setUrl] = useState<string>();
@@ -23,7 +23,7 @@ export function BookCover({ book, big = false, showFormat = false }: { book: Boo
   const [broken, setBroken] = useState(false);
   const bg = PALETTE[hashIndex(book.id, PALETTE.length)];
   return (
-    <div className="cover" style={{ background: url && !broken ? undefined : bg }}>
+    <div className="cover" style={{ background: url && !broken ? undefined : book.coverColor ?? bg }}>
       {url && !broken ? (
         <img src={url} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} draggable={false} />
       ) : (

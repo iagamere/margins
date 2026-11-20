@@ -29,6 +29,8 @@ export function defaultSettings(): Settings {
     lang: detectLang(),
     theme: 'system',
     accent: 'olive',
+    accentCustom: '#6b7fa8',
+    savedColors: [],
     pdfReflow: false,
     libraryView: 'grid',
     librarySort: 'opened',

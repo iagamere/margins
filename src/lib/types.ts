@@ -2,7 +2,7 @@ export type BookFormat = 'epub' | 'pdf';
 export type Lang = 'ar' | 'fr' | 'en';
 export type ThemeName = 'light' | 'dark' | 'sepia';
 export type AppTheme = 'system' | ThemeName;
-export type AccentName = 'olive' | 'clay' | 'ochre' | 'sea' | 'slate' | 'plum' | 'rose' | 'cocoa';
+export type AccentName = 'olive' | 'clay' | 'ochre' | 'sea' | 'slate' | 'plum' | 'rose' | 'cocoa' | 'custom';
 export type ReaderTheme = 'auto' | ThemeName;
 export type ReadingMode = 'scroll' | 'paged';
 export type ReadFont = 'auto' | 'original' | 'literata' | 'sourceSerif' | 'naskh' | 'amiri' | 'plexArabic' | 'cairo' | 'inter';
@@ -33,6 +33,8 @@ export interface BookRecord {
   coverTrimmed?: boolean;
   /** version of the trimming algorithm applied to the cover (see trim.ts) */
   coverTrimV?: number;
+  /** colour of the placeholder cover (books without a cover picture) */
+  coverColor?: string;
   language?: string;
   rtl?: boolean;
   pages?: number;
@@ -86,6 +88,10 @@ export interface Settings {
   theme: AppTheme;
   /** interface accent colour */
   accent: AccentName;
+  /** the colour behind accent 'custom' (#rrggbb) */
+  accentCustom: string;
+  /** colours the user invented and kept, offered wherever a colour is chosen */
+  savedColors: string[];
   readerTheme: ReaderTheme;
   readingMode: ReadingMode;
   font: ReadFont;

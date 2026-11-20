@@ -21,6 +21,7 @@ export function App() {
   const route = useApp((s) => s.route);
   const themePref = useApp((s) => s.settings.theme);
   const accent = useApp((s) => s.settings.accent);
+  const accentCustom = useApp((s) => s.settings.accentCustom);
   const readerTheme = useApp((s) => s.settings.readerTheme);
   const resolved = useApp((s) => s.resolvedTheme);
   const setResolvedTheme = useApp((s) => s.setResolvedTheme);
@@ -72,13 +73,13 @@ export function App() {
       document.head.appendChild(el);
     }
     el.textContent = accentCss(accent);
-  }, [accent]);
+  }, [accent, accentCustom]);
 
   // System bars follow whatever surface is on screen.
   const barTheme: ThemeName = route.name === 'reader' ? (readerTheme === 'auto' ? resolved : readerTheme) : resolved;
   useEffect(() => {
     void setSystemBars(barTheme === 'dark', themeColors(accent, barTheme).bg);
-  }, [barTheme, accent]);
+  }, [barTheme, accent, accentCustom]);
 
   if (route.name === 'reader') {
     return (

@@ -4,6 +4,7 @@ import { clearSettings, defaultSettings, loadSettings, saveSettings } from '../l
 import { importFile, type ImportResult } from '../lib/importer';
 import type { BookRecord, Route, Settings, ShelfRecord, ShelfStyle, ThemeName } from '../lib/types';
 import { uid } from '../lib/utils';
+import { setCustomAccent } from '../lib/accents';
 import { TRIM_VERSION, trimExistingCovers } from '../lib/trim';
 import { AppError } from '../lib/types';
 
@@ -58,8 +59,11 @@ interface AppState {
   dismissToast(id: string): void;
 }
 
+const initialSettings = loadSettings();
+setCustomAccent(initialSettings.accentCustom);
+
 export const useApp = create<AppState>((set, get) => ({
-  settings: loadSettings(),
+  settings: initialSettings,
   books: [],
   shelves: [],
   openShelf: null,
@@ -85,6 +89,7 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   setSettings(patch) {
+    if (patch.accentCustom) setCustomAccent(patch.accentCustom);
     const settings = { ...get().settings, ...patch };
     saveSettings(settings);
     set({ settings });
@@ -268,7 +273,9 @@ export const useApp = create<AppState>((set, get) => ({
       /* ignore */
     }
     clearSettings();
-    set({ books: [], shelves: [], openShelf: null, clipboard: null, settings: defaultSettings(), route: { name: 'library' }, history: [] });
+    const fresh = defaultSettings();
+    setCustomAccent(fresh.accentCustom);
+    set({ books: [], shelves: [], openShelf: null, clipboard: null, settings: fresh, route: { name: 'library' }, history: [] });
     get().toast('settings.cleared', 'info');
   },
 

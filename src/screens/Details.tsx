@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ArrowLeft, BookOpen, Check, Library as ShelfIcon, Trash2 } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
-import { BookCover } from '../components/BookCover';
+import { BookCover, PALETTE } from '../components/BookCover';
+import { ColorChoice } from '../components/ColorPicker';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ShelfSheet } from '../components/ShelfSheet';
 import { ShelfDialog } from '../components/ShelfDialog';
@@ -74,6 +75,14 @@ export function DetailsScreen({ id }: { id: string }) {
                 {t('details.remove')}
               </button>
             </div>
+            {!book.cover && (
+              <div className="group" style={{ width: '100%' }}>
+                <div className="setting">
+                  <span className="label">{t('cover.color')}</span>
+                  <ColorChoice label={t('cover.color')} value={book.coverColor} presets={PALETTE} noneLabel={t('theme.auto')} noneText="A" onChange={(c) => updateBook(book.id, { coverColor: c })} />
+                </div>
+              </div>
+            )}
             <div className="group facts">
               {facts.map(([k, v]) => (
                 <div className="fact" key={k}><span>{k}</span><span>{v}</span></div>

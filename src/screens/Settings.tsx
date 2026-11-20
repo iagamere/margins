@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT, LANG_NAMES } from '../lib/i18n';
 import { TypographyControls } from '../components/TypographyControls';
@@ -8,7 +8,8 @@ import { requestPersistence, storageEstimate } from '../lib/db';
 import { formatBytes } from '../lib/utils';
 import { isNative } from '../lib/platform';
 import { CURRENT_BUILD } from '../lib/updater';
-import { ACCENTS, ACCENT_NAMES, themeColors } from '../lib/accents';
+import { ACCENTS, PRESET_ACCENTS, themeColors } from '../lib/accents';
+import { ColorPickerDialog } from '../components/ColorPicker';
 import type { AppTheme, Lang } from '../lib/types';
 
 const THEME_IDS: AppTheme[] = ['system', 'light', 'dark', 'sepia'];
@@ -21,6 +22,7 @@ export function SettingsScreen() {
   const resetEverything = useApp((st) => st.resetEverything);
   const [est, setEst] = useState<{ usage?: number; quota?: number; persisted?: boolean }>({});
   const [confirm, setConfirm] = useState(false);
+  const [pickAccent, setPickAccent] = useState(false);
 
   useEffect(() => {
     void storageEstimate().then(setEst);
@@ -51,12 +53,18 @@ export function SettingsScreen() {
         <h2 className="eyebrow section-title">{t('settings.accent')}</h2>
         <div className="group"><div className="setting">
           <div className="accent-dots" role="group" aria-label={t('settings.accent')}>
-            {ACCENT_NAMES.map((a) => (
+            {PRESET_ACCENTS.map((a) => (
               <button key={a} className="accent-dot" style={{ background: ACCENTS[a].swatch }} aria-pressed={s.accent === a} aria-label={t(`accent.${a}`)} title={t(`accent.${a}`)} onClick={() => set({ accent: a })}>
                 {s.accent === a && <Check size={18} strokeWidth={3} />}
               </button>
             ))}
+            <button className="accent-dot custom" style={s.accent === 'custom' ? { background: s.accentCustom } : undefined} aria-pressed={s.accent === 'custom'} aria-label={t('accent.custom')} title={t('accent.custom')} onClick={() => setPickAccent(true)}>
+              {s.accent === 'custom' ? <Check size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={2.4} />}
+            </button>
           </div>
+          {pickAccent && (
+            <ColorPickerDialog value={s.accentCustom} onCancel={() => setPickAccent(false)} onApply={(c) => { setPickAccent(false); set({ accent: 'custom', accentCustom: c }); }} />
+          )}
         </div></div>
 
 
