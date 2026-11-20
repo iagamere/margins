@@ -10,6 +10,7 @@ import { isNative } from '../lib/platform';
 import { CURRENT_BUILD } from '../lib/updater';
 import { ACCENTS, PRESET_ACCENTS, themeColors } from '../lib/accents';
 import { ColorPickerDialog } from '../components/ColorPicker';
+import { loadAccount, signIn, signOut, type Account } from '../lib/auth';
 import type { AppTheme, Lang } from '../lib/types';
 
 const THEME_IDS: AppTheme[] = ['system', 'light', 'dark', 'sepia'];
@@ -23,6 +24,25 @@ export function SettingsScreen() {
   const [est, setEst] = useState<{ usage?: number; quota?: number; persisted?: boolean }>({});
   const [confirm, setConfirm] = useState(false);
   const [pickAccent, setPickAccent] = useState(false);
+  const [account, setAccount] = useState<Account | null>(() => loadAccount());
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const doSignIn = async () => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      setAccount(await signIn());
+    } catch (e) {
+      setAuthError((e as { message?: string })?.message || String(e));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+  const doSignOut = async () => {
+    await signOut();
+    setAccount(null);
+    setAuthError(null);
+  };
 
   useEffect(() => {
     void storageEstimate().then(setEst);
@@ -81,6 +101,32 @@ export function SettingsScreen() {
         <h2 className="eyebrow section-title">{t('settings.reading')}</h2>
         <TypographyControls />
         <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>{t('settings.readingHint')}</p>
+
+        {isNative && (
+          <>
+            <h2 className="eyebrow section-title">{t('account.title')}</h2>
+            <div className="group">
+              {account ? (
+                <>
+                  <div className="setting-row">
+                    <div>
+                      <div className="label" dir="auto">{account.name || account.email}</div>
+                      {account.name && account.email && <div className="hint" dir="ltr">{account.email}</div>}
+                    </div>
+                    <button className="btn btn-sm" onClick={() => void doSignOut()}>{t('account.signOut')}</button>
+                  </div>
+                  <div className="setting-row"><span className="label">{t('account.drive')}</span><span className="muted">{t(account.drive ? 'account.driveOn' : 'account.driveOff')}</span></div>
+                </>
+              ) : (
+                <div className="setting-row">
+                  <div><div className="label">{t('account.signIn')}</div><div className="hint">{t('account.hint')}</div></div>
+                  <button className="btn btn-sm btn-primary" disabled={authBusy} onClick={() => void doSignIn()}>{authBusy ? '…' : t('account.signInBtn')}</button>
+                </div>
+              )}
+              {authError && <div className="setting"><div className="hint" dir="auto" style={{ fontSize: 13, color: 'var(--danger, #b3261e)', wordBreak: 'break-word' }}>{t('account.failed')}: {authError}</div></div>}
+            </div>
+          </>
+        )}
 
         <h2 className="eyebrow section-title">{t('settings.storage')}</h2>
         <div className="group">

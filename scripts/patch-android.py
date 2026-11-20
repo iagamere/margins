@@ -31,3 +31,52 @@ def gradle(s):
     return re.sub(r'versionName\s*=?\s*"[^"]*"', f'versionName "1.0.{BUILD}"', s)
 
 patch("app/build.gradle", gradle)
+
+
+# Google sign-in with the Drive scope: the plugin needs MainActivity to forward onActivityResult to it.
+MAIN_ACTIVITY = """package app.margins.reader;
+
+import android.content.Intent;
+import android.util.Log;
+import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginHandle;
+import ee.forgr.capacitor.social.login.GoogleProvider;
+import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
+import ee.forgr.capacitor.social.login.SocialLoginPlugin;
+
+public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN && requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
+            PluginHandle handle = getBridge().getPlugin("SocialLogin");
+            if (handle == null) {
+                Log.i("Margins", "SocialLogin plugin handle is null");
+                return;
+            }
+            Plugin plugin = handle.getInstance();
+            if (!(plugin instanceof SocialLoginPlugin)) {
+                Log.i("Margins", "SocialLogin plugin instance has the wrong type");
+                return;
+            }
+            ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
+        }
+    }
+
+    @Override
+    public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
+}
+"""
+
+def main_activity():
+    java = root / "app/src/main/java/app/margins/reader"
+    if not (root / "app").exists():
+        print("skip (missing): MainActivity")
+        return
+    java.mkdir(parents=True, exist_ok=True)
+    (java / "MainActivity.java").write_text(MAIN_ACTIVITY, encoding="utf-8")
+    print("patched: MainActivity.java")
+
+main_activity()
