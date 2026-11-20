@@ -23,7 +23,8 @@ export function useT() {
   const lang = useApp((s) => s.settings.lang);
   const t: TFn = (key, params) => translate(lang, key, params);
   const n = (v: number) => new Intl.NumberFormat(intlLocale(lang)).format(v);
-  return { t, lang, dir: lang === 'ar' ? ('rtl' as const) : ('ltr' as const), n };
+  // The interface layout is always LTR, whatever the language: only the text changes.
+  return { t, lang, dir: 'ltr' as const, n };
 }
 
 export const LANG_NAMES: Record<Lang, string> = { ar: 'العربية', fr: 'Français', en: 'English' };

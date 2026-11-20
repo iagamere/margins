@@ -526,7 +526,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const footLeft = format === 'epub' ? pos?.chapter ?? '' : '';
   const footRight = format === 'epub' ? `${n(Math.round(pct * 100))}%` : total ? `${n(scrubPage ?? curPage)} / ${n(total)}` : '';
   const isBookmarked = bookmarksHere.length > 0;
-  const rtlUi = lang === 'ar';
+  const rtlUi = false; // UI layout never flips with the language
   useEffect(() => {
     if (format === 'pdf') setInfo(null);
   }, [settings.pdfReflow, format]);
