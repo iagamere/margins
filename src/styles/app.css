@@ -271,3 +271,9 @@ textarea.textarea:focus-visible { outline: none; border-color: var(--accent); }
 .sel-actions button.danger { color: var(--danger); }
 .paste-bar { position: fixed; z-index: 90; inset-inline: 16px; margin-inline: auto; max-width: 420px; bottom: calc(var(--nav-h) + var(--safe-b) + 12px); display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--accent); box-shadow: var(--shadow); font-size: 14px; }
 .paste-bar > span { flex: 1; font-weight: 500; }
+
+/* ---------- Accent colour picker ---------- */
+.accent-dots { display: flex; flex-wrap: wrap; gap: 12px; }
+.accent-dot { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; border: 2px solid transparent; transition: transform 90ms; }
+.accent-dot:active { transform: scale(0.94); }
+.accent-dot[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg2); }

@@ -28,6 +28,7 @@ export function defaultSettings(): Settings {
   return {
     lang: detectLang(),
     theme: 'system',
+    accent: 'olive',
     pdfReflow: false,
     libraryView: 'grid',
     librarySort: 'opened',

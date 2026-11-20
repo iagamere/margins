@@ -2,6 +2,7 @@ export type BookFormat = 'epub' | 'pdf';
 export type Lang = 'ar' | 'fr' | 'en';
 export type ThemeName = 'light' | 'dark' | 'sepia';
 export type AppTheme = 'system' | ThemeName;
+export type AccentName = 'olive' | 'clay' | 'ochre' | 'sea' | 'slate' | 'plum' | 'rose' | 'cocoa';
 export type ReaderTheme = 'auto' | ThemeName;
 export type ReadingMode = 'scroll' | 'paged';
 export type ReadFont = 'auto' | 'original' | 'literata' | 'sourceSerif' | 'naskh' | 'amiri' | 'plexArabic' | 'cairo' | 'inter';
@@ -67,6 +68,8 @@ export interface AnnotationRecord {
 export interface Settings {
   lang: Lang;
   theme: AppTheme;
+  /** interface accent colour */
+  accent: AccentName;
   readerTheme: ReaderTheme;
   readingMode: ReadingMode;
   font: ReadFont;

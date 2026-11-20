@@ -1,3 +1,4 @@
+import { accentInk } from './accents';
 import type { ReadFont, Settings, ThemeName } from './types';
 
 export const THEME_COLORS: Record<ThemeName, { bg: string; fg: string; fg2: string; accent: string }> = {
@@ -32,7 +33,7 @@ export function resolveFont(font: ReadFont, rtlBook: boolean): { stack: string |
 
 /** CSS injected into every EPUB chapter document. User preferences intentionally override publisher styling for readability. */
 export function buildEpubCss(s: Settings, theme: ThemeName, rtlBook: boolean): string {
-  const c = THEME_COLORS[theme];
+  const c = { ...THEME_COLORS[theme], accent: accentInk(s.accent, theme) ?? THEME_COLORS[theme].accent };
   const { stack, arabicScale } = resolveFont(s.font, rtlBook);
   const size = Math.round(s.fontSize * arabicScale * 10) / 10;
   const align =

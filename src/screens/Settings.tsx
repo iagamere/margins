@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT, LANG_NAMES } from '../lib/i18n';
 import { TypographyControls } from '../components/TypographyControls';
@@ -7,6 +8,7 @@ import { requestPersistence, storageEstimate } from '../lib/db';
 import { formatBytes } from '../lib/utils';
 import { isNative } from '../lib/platform';
 import { CURRENT_BUILD } from '../lib/updater';
+import { ACCENTS, ACCENT_NAMES } from '../lib/accents';
 import type { AppTheme, Lang } from '../lib/types';
 
 const THEMES: Array<{ id: AppTheme; bg: string }> = [
@@ -46,6 +48,17 @@ export function SettingsScreen() {
             ))}
           </div>
         </div></div>
+        <h2 className="eyebrow section-title">{t('settings.accent')}</h2>
+        <div className="group"><div className="setting">
+          <div className="accent-dots" role="group" aria-label={t('settings.accent')}>
+            {ACCENT_NAMES.map((a) => (
+              <button key={a} className="accent-dot" style={{ background: ACCENTS[a].swatch }} aria-pressed={s.accent === a} aria-label={t(`accent.${a}`)} title={t(`accent.${a}`)} onClick={() => set({ accent: a })}>
+                {s.accent === a && <Check size={18} strokeWidth={3} />}
+              </button>
+            ))}
+          </div>
+        </div></div>
+
 
         <h2 className="eyebrow section-title">{t('settings.language')}</h2>
         <div className="group"><div className="setting">

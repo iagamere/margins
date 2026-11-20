@@ -5,6 +5,7 @@ import { initBackButton, setSystemBars } from './lib/platform';
 import { runTopBackHandler } from './lib/backStack';
 import { requestPersistence } from './lib/db';
 import { THEME_COLORS } from './lib/readerCss';
+import { accentCss } from './lib/accents';
 import type { ThemeName } from './lib/types';
 import { BottomNav, SideNav } from './components/Nav';
 import { DropZone } from './components/DropZone';
@@ -20,6 +21,7 @@ export function App() {
   const { lang, dir } = useT();
   const route = useApp((s) => s.route);
   const themePref = useApp((s) => s.settings.theme);
+  const accent = useApp((s) => s.settings.accent);
   const readerTheme = useApp((s) => s.settings.readerTheme);
   const resolved = useApp((s) => s.resolvedTheme);
   const setResolvedTheme = useApp((s) => s.setResolvedTheme);
@@ -61,6 +63,17 @@ export function App() {
     mq.addEventListener?.('change', apply);
     return () => mq.removeEventListener?.('change', apply);
   }, [themePref, setResolvedTheme]);
+
+  // Accent colour → one <style> that overrides --accent for every theme (also inside the reader).
+  useEffect(() => {
+    let el = document.getElementById('accent-style') as HTMLStyleElement | null;
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'accent-style';
+      document.head.appendChild(el);
+    }
+    el.textContent = accentCss(accent);
+  }, [accent]);
 
   // System bars follow whatever surface is on screen.
   const barTheme: ThemeName = route.name === 'reader' ? (readerTheme === 'auto' ? resolved : readerTheme) : resolved;
