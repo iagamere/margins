@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Library as ShelfIcon, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Library as ShelfIcon, Trash2 } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
 import { BookCover } from '../components/BookCover';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Sheet } from '../components/Sheet';
+import { ShelfSheet } from '../components/ShelfSheet';
 import { NameDialog } from '../components/NameDialog';
 import { formatBytes, formatDate } from '../lib/utils';
 
@@ -83,33 +83,17 @@ export function DetailsScreen({ id }: { id: string }) {
         </div>
       </div>
       {shelfSheet && (
-        <Sheet title={t('shelf.moveTo')} onClose={() => setShelfSheet(false)}>
-          <div className="list">
-            {[{ id: undefined as string | undefined, name: t('shelf.none') }, ...shelves].map((x) => {
-              const on = (book.shelfId ?? undefined) === x.id;
-              return (
-                <button
-                  key={x.id ?? 'none'}
-                  className="toc-item"
-                  style={{ minHeight: 52 }}
-                  onClick={() => {
-                    setShelfSheet(false);
-                    if (on) return;
-                    moveBook(book.id, x.id);
-                    toast(x.id ? 'shelf.moved' : 'shelf.unshelved', 'info', { name: x.name });
-                  }}
-                >
-                  <span dir="auto" style={{ flex: 1, fontWeight: on ? 600 : 400, color: on ? 'var(--accent-ink)' : undefined }}>{x.name}</span>
-                  {on && <Check size={18} aria-hidden="true" />}
-                </button>
-              );
-            })}
-            <button className="toc-item" style={{ minHeight: 52, color: 'var(--accent-ink)' }} onClick={() => { setShelfSheet(false); setNewShelf(true); }}>
-              <Plus size={18} aria-hidden="true" />
-              <span>{t('shelf.new')}</span>
-            </button>
-          </div>
-        </Sheet>
+        <ShelfSheet
+          current={book.shelfId}
+          onClose={() => setShelfSheet(false)}
+          onNew={() => { setShelfSheet(false); setNewShelf(true); }}
+          onPick={(id) => {
+            setShelfSheet(false);
+            if (id === book.shelfId) return;
+            moveBook(book.id, id);
+            toast(id ? 'shelf.moved' : 'shelf.unshelved', 'info', { name: shelves.find((x) => x.id === id)?.name ?? '' });
+          }}
+        />
       )}
       {newShelf && (
         <NameDialog

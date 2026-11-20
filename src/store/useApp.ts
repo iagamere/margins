@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { clearAllData, deleteBook, getAllBooks, getShelves, patchBook, saveShelves } from '../lib/db';
+import { clearAllData, deleteBook, duplicateBook, getAllBooks, getShelves, patchBook, saveShelves } from '../lib/db';
 import { clearSettings, defaultSettings, loadSettings, saveSettings } from '../lib/settings';
 import { importFile, type ImportResult } from '../lib/importer';
 import type { BookRecord, Route, Settings, ShelfRecord, ThemeName } from '../lib/types';
 import { uid } from '../lib/utils';
+import { AppError } from '../lib/types';
 
 export interface Toast {
   id: string;
@@ -19,6 +20,8 @@ interface AppState {
   shelves: ShelfRecord[];
   /** shelf currently opened in the library (kept when going to a book and back) */
   openShelf: string | null;
+  /** books waiting to be pasted (cut = move, copy = duplicate) */
+  clipboard: { mode: 'cut' | 'copy'; ids: string[] } | null;
   booksLoaded: boolean;
   route: Route;
   history: Route[];
@@ -37,6 +40,10 @@ interface AppState {
 
   importFiles(files: File[], shelfId?: string): Promise<BookRecord | null>;
   setOpenShelf(id: string | null): void;
+  setClipboard(c: { mode: 'cut' | 'copy'; ids: string[] } | null): void;
+  moveBooks(ids: string[], shelfId: string | undefined): void;
+  removeBooks(ids: string[]): Promise<void>;
+  pasteClipboard(shelfId: string | undefined): Promise<void>;
   createShelf(name: string): string;
   renameShelf(id: string, name: string): void;
   deleteShelf(id: string): void;
@@ -54,6 +61,7 @@ export const useApp = create<AppState>((set, get) => ({
   books: [],
   shelves: [],
   openShelf: null,
+  clipboard: null,
   booksLoaded: false,
   route: { name: 'library' },
   history: [],
@@ -156,6 +164,51 @@ export const useApp = create<AppState>((set, get) => ({
     set({ openShelf: id });
   },
 
+  setClipboard(c) {
+    set({ clipboard: c });
+  },
+
+  moveBooks(ids, shelfId) {
+    for (const id of ids) get().updateBook(id, { shelfId });
+  },
+
+  async removeBooks(ids) {
+    let done = 0;
+    for (const id of ids) {
+      try {
+        await deleteBook(id);
+        done++;
+      } catch {
+        /* keep going with the others */
+      }
+    }
+    const gone = new Set(ids);
+    set({ books: get().books.filter((b) => !gone.has(b.id)), clipboard: null });
+    if (done === 1) get().toast('library.removed', 'info');
+    else if (done > 1) get().toast('select.deleted', 'info', { count: done });
+  },
+
+  async pasteClipboard(shelfId) {
+    const clip = get().clipboard;
+    if (!clip) return;
+    const ids = clip.ids.filter((id) => get().books.some((b) => b.id === id));
+    set({ clipboard: null });
+    if (clip.mode === 'cut') {
+      get().moveBooks(ids, shelfId);
+    } else {
+      for (const id of ids) {
+        try {
+          const copy = await duplicateBook(id, shelfId);
+          if (copy) set({ books: [copy, ...get().books] });
+        } catch (e) {
+          get().toast(e instanceof AppError && e.code === 'quota' ? 'err.quota' : 'err.importFailed', 'error', { name: '' });
+          return;
+        }
+      }
+    }
+    if (ids.length) get().toast('clip.pasted', 'success', { count: ids.length });
+  },
+
   createShelf(name) {
     const shelf: ShelfRecord = { id: uid(), name: name.trim(), createdAt: Date.now() };
     const shelves = [...get().shelves, shelf];
@@ -205,7 +258,7 @@ export const useApp = create<AppState>((set, get) => ({
       /* ignore */
     }
     clearSettings();
-    set({ books: [], shelves: [], openShelf: null, settings: defaultSettings(), route: { name: 'library' }, history: [] });
+    set({ books: [], shelves: [], openShelf: null, clipboard: null, settings: defaultSettings(), route: { name: 'library' }, history: [] });
     get().toast('settings.cleared', 'info');
   },
 

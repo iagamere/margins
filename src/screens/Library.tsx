@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowDownUp, ArrowLeft, ArrowUp, BookPlus, FolderPlus, LayoutGrid, Library as ShelfIcon, List, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowDownUp, ArrowLeft, ArrowUp, BookCheck, BookPlus, ClipboardPaste, Copy, FolderInput, FolderPlus, LayoutGrid, Library as ShelfIcon, List, Pencil, Plus, Scissors, Search, Trash2, X } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
 import type { BookRecord, LibraryFilter, LibrarySort } from '../lib/types';
@@ -9,6 +9,7 @@ import { LogoMark } from '../components/Logo';
 import { Sheet } from '../components/Sheet';
 import { NameDialog } from '../components/NameDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ShelfSheet } from '../components/ShelfSheet';
 import { pushBackHandler } from '../lib/backStack';
 
 const FILTERS: LibraryFilter[] = ['all', 'reading', 'completed', 'recent'];
@@ -49,7 +50,15 @@ export function LibraryScreen() {
   const [filter, setFilter] = useState<LibraryFilter>('all');
   const [query, setQuery] = useState('');
   const [sortOpen, setSortOpen] = useState(false);
-  const [dialog, setDialog] = useState<null | 'new' | 'rename' | 'delete'>(null);
+  const [dialog, setDialog] = useState<null | 'new' | 'rename' | 'delete' | 'moveSel' | 'newForSel' | 'deleteSel'>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const clipboard = useApp((s) => s.clipboard);
+  const setClipboard = useApp((s) => s.setClipboard);
+  const moveBooks = useApp((s) => s.moveBooks);
+  const removeBooks = useApp((s) => s.removeBooks);
+  const pasteClipboard = useApp((s) => s.pasteClipboard);
+  const updateBook = useApp((s) => s.updateBook);
+  const selecting = sel.size > 0;
   const picker = useRef<FilePickerHandle>(null);
 
   const shelf = shelves.find((x) => x.id === openShelf) ?? null;
@@ -62,6 +71,14 @@ export function LibraryScreen() {
     if (!shelf) return;
     return pushBackHandler(() => setOpenShelf(null));
   }, [shelf?.id, setOpenShelf]);
+
+  // Leaving the place the selection was made in (other shelf, filter, search) drops it.
+  useEffect(() => setSel(new Set()), [openShelf, filter, query]);
+  // Android back / Esc cancels the selection before anything else.
+  useEffect(() => {
+    if (!selecting) return;
+    return pushBackHandler(() => setSel(new Set()));
+  }, [selecting]);
 
   const flat = filter !== 'all' || query.trim() !== '';
   const showTiles = !shelf && !flat && shelves.length > 0;
@@ -109,9 +126,32 @@ export function LibraryScreen() {
     setSettings({ libraryReverse: rev });
     toast(dirKey(activeSort, rev), 'info');
   };
+  const toggle = (id: string) =>
+    setSel((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const clear = () => setSel(new Set());
+  const ids = [...sel];
+  const allSelected = shown.length > 0 && shown.every((b) => sel.has(b.id));
+  const selBooks = books.filter((b) => sel.has(b.id));
+  const allRead = selBooks.length > 0 && selBooks.every((b) => b.finished);
   const countOf = (id: string) => books.filter((b) => b.shelfId === id).length;
 
   const open = (b: BookRecord) => navigate({ name: 'details', id: b.id });
+  const pressProps = (b: BookRecord) => ({
+    selecting,
+    selected: sel.has(b.id),
+    onLongPress: () => toggle(b.id),
+    onOpen: () => (selecting ? toggle(b.id) : open(b)),
+  });
+  const moveSelTo = (shelfId: string | undefined, name: string) => {
+    moveBooks(ids, shelfId);
+    toast(shelfId ? 'select.movedTo' : 'select.movedOut', 'info', { count: ids.length, name });
+    clear();
+  };
 
   return (
     <div className="screen">
@@ -201,7 +241,7 @@ export function LibraryScreen() {
                   {sortedShelves.map((x) => {
                     const c = countOf(x.id);
                     return (
-                      <button key={x.id} className="shelf-tile" onClick={() => setOpenShelf(x.id)} aria-label={x.name}>
+                      <button key={x.id} className="shelf-tile" onClick={() => !selecting && setOpenShelf(x.id)} aria-label={x.name}>
                         <ShelfIcon size={26} strokeWidth={1.4} aria-hidden="true" />
                         <div className="name clamp2" dir="auto">{x.name}</div>
                         <div className="count">{c === 1 ? t('shelf.one') : t('shelf.count', { count: n(c) })}</div>
@@ -220,13 +260,13 @@ export function LibraryScreen() {
             ) : settings.libraryView === 'grid' ? (
               <div className="grid" style={{ marginTop: showTiles ? 24 : 16 }}>
                 {shown.map((b) => (
-                  <BookCard key={b.id} book={b} onOpen={() => open(b)} />
+                  <BookCard key={b.id} book={b} {...pressProps(b)} />
                 ))}
               </div>
             ) : (
               <div className="list" style={{ marginTop: 8 }}>
                 {shown.map((b) => (
-                  <BookRow key={b.id} book={b} onOpen={() => open(b)} />
+                  <BookRow key={b.id} book={b} {...pressProps(b)} />
                 ))}
               </div>
             )}
@@ -234,6 +274,74 @@ export function LibraryScreen() {
           </>
         )}
       </div>
+
+      {selecting && (
+        <>
+          <div className="sel-bar" role="toolbar">
+            <button className="icon-btn" onClick={clear} aria-label={t('select.close')}><X size={22} /></button>
+            <span className="count">{t('select.count', { count: n(sel.size) })}</span>
+            <button className="btn btn-sm btn-ghost" onClick={() => setSel(allSelected ? new Set() : new Set(shown.map((b) => b.id)))}>
+              {allSelected ? t('select.none') : t('select.all')}
+            </button>
+          </div>
+          <div className="sel-actions" role="toolbar">
+            <button onClick={() => setDialog('moveSel')}><FolderInput size={22} /><span>{t('select.move')}</span></button>
+            <button onClick={() => { setClipboard({ mode: 'cut', ids }); clear(); }}><Scissors size={22} /><span>{t('select.cut')}</span></button>
+            <button onClick={() => { setClipboard({ mode: 'copy', ids }); clear(); }}><Copy size={22} /><span>{t('select.copy')}</span></button>
+            <button onClick={() => { for (const id of ids) updateBook(id, { finished: !allRead }); clear(); }}><BookCheck size={22} /><span>{allRead ? t('select.unread') : t('select.read')}</span></button>
+            <button className="danger" onClick={() => setDialog('deleteSel')}><Trash2 size={22} /><span>{t('select.delete')}</span></button>
+          </div>
+        </>
+      )}
+
+      {clipboard && !selecting && (
+        <div className="paste-bar" role="status">
+          <span>{t(clipboard.mode === 'cut' ? 'clip.cut' : 'clip.copy', { count: n(clipboard.ids.length) })}</span>
+          <button className="btn btn-primary btn-sm" onClick={() => void pasteClipboard(shelf?.id)}>
+            <ClipboardPaste size={17} aria-hidden="true" />
+            {t('clip.paste')}
+          </button>
+          <button className="icon-btn" style={{ width: 36, height: 36 }} onClick={() => setClipboard(null)} aria-label={t('clip.discard')}><X size={18} /></button>
+        </div>
+      )}
+
+      {dialog === 'moveSel' && (
+        <ShelfSheet
+          current={false}
+          onClose={() => setDialog(null)}
+          onNew={() => setDialog('newForSel')}
+          onPick={(id) => {
+            setDialog(null);
+            moveSelTo(id, shelves.find((x) => x.id === id)?.name ?? '');
+          }}
+        />
+      )}
+      {dialog === 'newForSel' && (
+        <NameDialog
+          title={t('shelf.newTitle')}
+          confirmLabel={t('shelf.create')}
+          onCancel={() => setDialog(null)}
+          onSubmit={(name) => {
+            setDialog(null);
+            moveSelTo(createShelf(name), name);
+          }}
+        />
+      )}
+      {dialog === 'deleteSel' && (
+        <ConfirmDialog
+          title={ids.length === 1 ? t('details.removeTitle') : t('select.deleteTitle', { count: n(ids.length) })}
+          body={t('details.removeBody')}
+          confirmLabel={t('select.delete')}
+          danger
+          onCancel={() => setDialog(null)}
+          onConfirm={() => {
+            setDialog(null);
+            const del = ids;
+            clear();
+            void removeBooks(del);
+          }}
+        />
+      )}
 
       {sortOpen && (
         <Sheet title={t('library.sort')} onClose={() => setSortOpen(false)}>

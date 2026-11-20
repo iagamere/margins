@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { uid } from './utils';
 import { AppError, type AnnotationRecord, type BookRecord, type ShelfRecord } from './types';
 
 interface MarginsDB extends DBSchema {
@@ -69,6 +70,17 @@ export async function addBook(book: BookRecord, file: Blob): Promise<void> {
     if (isQuotaError(e)) throw new AppError('quota');
     throw e;
   }
+}
+
+/** Copies a book (file + cover) as a fresh, unread entry placed on `shelfId`. */
+export async function duplicateBook(id: string, shelfId: string | undefined): Promise<BookRecord | undefined> {
+  const db = await getDb();
+  const book = await db.get('books', id);
+  const file = await db.get('files', id);
+  if (!book || !file) return undefined;
+  const copy: BookRecord = { ...book, id: uid(), addedAt: Date.now(), lastOpenedAt: undefined, percentage: 0, finished: false, location: undefined, shelfId };
+  await addBook(copy, file);
+  return copy;
 }
 
 export async function getFile(id: string): Promise<Blob | undefined> {
