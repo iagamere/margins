@@ -3,6 +3,8 @@ import {
   ArrowLeft,
   Bookmark,
   BookmarkCheck,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Expand,
   List,
@@ -24,6 +26,7 @@ import { HIGHLIGHT_COLORS } from '../lib/readerCss';
 import { pushBackHandler } from '../lib/backStack';
 import { openExternal } from '../lib/platform';
 import { debounce, throttle, uid } from '../lib/utils';
+import { findNeighbours } from '../lib/chapters';
 import { BookmarkPopover } from './BookmarkPopover';
 import type { AnnotationRecord, BookRecord, ErrorCode, HighlightColor, ReaderApi, ReaderPosition, ReaderReadyInfo, ThemeName, TocItem } from '../lib/types';
 import { Sheet } from '../components/Sheet';
@@ -39,6 +42,7 @@ type Panel = null | 'toc' | 'search' | 'notes' | 'typo';
 export function ReaderScreen({ id }: { id: string }) {
   const { t, n, lang } = useT();
   const book = useApp((s) => s.books.find((b) => b.id === id));
+  const allBooks = useApp((s) => s.books);
   const settings = useApp((s) => s.settings);
   const resolved = useApp((s) => s.resolvedTheme);
   const updateBook = useApp((s) => s.updateBook);
@@ -365,6 +369,13 @@ export function ReaderScreen({ id }: { id: string }) {
     setPanel(null);
     info?.api.goToLocation(a.location);
   };
+  const { prev: prevChap, next: nextChap } = useMemo(() => findNeighbours(book, allBooks), [book?.id, book?.fileName, book?.title, allBooks]);
+  const goChapter = (nb: { book: BookRecord } | null) => {
+    if (!nb) return;
+    persist.flush();
+    // replace: "back" still returns to the library, not to the previous chapter
+    navigate({ name: 'reader', id: nb.book.id }, { replace: true });
+  };
   const exit = useCallback(() => {
     persist.flush();
     if (!back()) navigate({ name: 'library' }, { replace: true });
@@ -602,6 +613,14 @@ export function ReaderScreen({ id }: { id: string }) {
         </div>
       )}
 
+      {/* ---------- end of chapter: jump to the next one ---------- */}
+      {nextChap && !showBars && !sel && (pos?.atEnd || (pos?.percentage ?? 0) >= 0.995) && (
+        <button className="next-chap" onClick={() => goChapter(nextChap)}>
+          <span>{t('chap.continue', { n: n(nextChap.num) })}</span>
+          <ChevronRight className="flip" size={20} aria-hidden="true" />
+        </button>
+      )}
+
       {/* ---------- top bar ---------- */}
       <div className={'rbar top' + (showBars ? '' : ' hidden')} aria-hidden={!showBars}>
         <button className="icon-btn" onClick={exit} aria-label={t('reader.back')} tabIndex={showBars ? 0 : -1}>
@@ -815,6 +834,18 @@ export function ReaderScreen({ id }: { id: string }) {
             <SkipForward className="flip" size={19} />
           </button>
         </div>
+        {(prevChap || nextChap) && (
+          <div className="chap-nav">
+            <button className="chap-btn" disabled={!prevChap} onClick={() => goChapter(prevChap)} aria-label={t('chap.prevAria')} tabIndex={showBars ? 0 : -1}>
+              <ChevronLeft className="flip" size={18} aria-hidden="true" />
+              <span>{prevChap ? t('chap.n', { n: n(prevChap.num) }) : ''}</span>
+            </button>
+            <button className="chap-btn" disabled={!nextChap} onClick={() => goChapter(nextChap)} aria-label={t('chap.nextAria')} tabIndex={showBars ? 0 : -1}>
+              <span>{nextChap ? t('chap.n', { n: n(nextChap.num) }) : ''}</span>
+              <ChevronRight className="flip" size={18} aria-hidden="true" />
+            </button>
+          </div>
+        )}
         <div className="tools" style={{ direction: rtlUi ? 'rtl' : 'ltr' }}>
           <ToolButton icon={<List size={22} />} label={t(format === 'pdf' ? 'reader.outline' : 'reader.contents')} onClick={openPanel('toc')} enabled={showBars} />
           <ToolButton icon={<NotebookPen size={22} />} label={t('reader.notes')} onClick={openPanel('notes')} enabled={showBars} />
