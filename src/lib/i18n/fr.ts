@@ -23,7 +23,7 @@ export const fr: Dict = {
   'theme.dark': 'Sombre',
   'theme.sepia': 'Sépia',
 
-  'library.add': 'Ajouter un livre',
+  'library.add': 'Ajouter',
   'library.search': 'Rechercher un titre ou un auteur',
   'library.sort': 'Trier',
   'library.filter': 'Filtrer',

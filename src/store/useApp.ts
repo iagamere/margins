@@ -4,6 +4,7 @@ import { clearSettings, defaultSettings, loadSettings, saveSettings } from '../l
 import { importFile, type ImportResult } from '../lib/importer';
 import type { BookRecord, Route, Settings, ShelfRecord, ThemeName } from '../lib/types';
 import { uid } from '../lib/utils';
+import { TRIM_VERSION, trimExistingCovers } from '../lib/trim';
 import { AppError } from '../lib/types';
 
 export interface Toast {
@@ -74,6 +75,8 @@ export const useApp = create<AppState>((set, get) => ({
       const books = await getAllBooks();
       const shelves = await getShelves().catch(() => [] as ShelfRecord[]);
       set({ books, shelves, booksLoaded: true });
+      // Covers saved earlier still carry their white page margins: clean them once, in the background.
+      void trimExistingCovers(books, (id, cover) => get().updateBook(id, { cover, coverTrimmed: true, coverTrimV: TRIM_VERSION }));
     } catch {
       set({ books: [], booksLoaded: true });
       get().toast('err.storageUnavailable', 'error');

@@ -1,6 +1,7 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Image as ImageIcon, EyeOff } from 'lucide-react';
 import { useT } from '../lib/i18n';
+import { contentBox } from '../lib/trim';
 import { useApp } from '../store/useApp';
 import { convertOutline, isPasswordError, loadPdfjs, openPdf, resolveOutlineDest, searchPdf, type OpenedPdf } from '../lib/pdf';
 import { extractPage, type PageText } from '../lib/reflow';
@@ -43,26 +44,6 @@ function Highlighted({ text, q }: { text: string; q: string }) {
   }
   out.push(<Fragment key={k++}>{text.slice(from)}</Fragment>);
   return <>{out}</>;
-}
-
-/* Bounding box of everything that is not (near) white on a rendered page, in canvas pixels. */
-function contentBox(ctx: CanvasRenderingContext2D, w: number, h: number): { x0: number; y0: number; x1: number; y1: number } | null {
-  const data = ctx.getImageData(0, 0, w, h).data;
-  const T = 242; // a channel below this counts as "ink"
-  let x0 = w, y0 = h, x1 = -1, y1 = -1;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      if (data[i] < T || data[i + 1] < T || data[i + 2] < T) {
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
-      }
-    }
-  }
-  if (x1 < 0) return null;
-  return { x0, y0, x1: x1 + 1, y1: y1 + 1 };
 }
 
 /* The untouched PDF page, drawn on demand inside the text flow (images, tables, scans). */

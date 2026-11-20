@@ -29,6 +29,10 @@ export interface BookRecord {
   location?: string;
   finished: boolean;
   cover?: Blob;
+  /** white page margins already cut off the cover */
+  coverTrimmed?: boolean;
+  /** version of the trimming algorithm applied to the cover (see trim.ts) */
+  coverTrimV?: number;
   language?: string;
   rtl?: boolean;
   pages?: number;

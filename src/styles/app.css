@@ -277,3 +277,17 @@ textarea.textarea:focus-visible { outline: none; border-color: var(--accent); }
 .accent-dot { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; border: 2px solid transparent; transition: transform 90ms; }
 .accent-dot:active { transform: scale(0.94); }
 .accent-dot[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg2); }
+
+/* ---------- Layout fixes: long words (FR title, AR placeholder) must never push buttons out of view ---------- */
+/* The search field takes only what the sort / order / view buttons leave: it has no intrinsic width of its own. */
+.tools-row { min-width: 0; flex-wrap: nowrap; }
+.tools-row > .icon-btn { flex: 0 0 auto; }
+.field { min-width: 0; flex: 1 1 0; width: 0; overflow: hidden; }
+.field input { flex: 1 1 0; width: 0; min-width: 0; text-overflow: ellipsis; }
+.field svg { flex-shrink: 0; }
+/* Header: the title shrinks / wraps, the actions never get clipped (they drop to their own line when needed). */
+.page-head .top { flex-wrap: wrap; row-gap: 10px; }
+.page-head .top .h-display { flex: 1 1 auto; min-width: 0; font-size: clamp(24px, 7.4vw, 30px); overflow-wrap: anywhere; }
+.page-head .top .h-display.long { font-size: clamp(20px, 5.6vw, 26px); }
+.page-head .top .top-actions { gap: 6px; flex: 0 0 auto; margin-inline-start: auto; max-width: 100%; }
+.page-head .top .top-actions .btn { white-space: nowrap; }

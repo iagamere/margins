@@ -1,5 +1,6 @@
 import ePub from 'epubjs';
 import { addBook, findBookByHash } from './db';
+import { TRIM_VERSION, trimCover } from './trim';
 import { openPdf, isPasswordError } from './pdf';
 import { AppError, type BookFormat, type BookRecord, type ErrorCode } from './types';
 import { baseName, isRtlLang, uid, withTimeout, log } from './utils';
@@ -164,7 +165,9 @@ export async function importFile(file: File): Promise<ImportResult> {
       addedAt: Date.now(),
       percentage: 0,
       finished: false,
-      cover: meta.cover,
+      cover: await trimCover(meta.cover),
+      coverTrimmed: true,
+      coverTrimV: TRIM_VERSION,
       language: meta.language,
       rtl: meta.rtl,
       pages: meta.pages,

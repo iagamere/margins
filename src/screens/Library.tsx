@@ -171,8 +171,8 @@ export function LibraryScreen() {
             </div>
           )}
           <div className="top">
-            <h1 className="h-display" dir="auto">{shelf ? shelf.name : t('nav.library')}</h1>
-            <div className="row" style={{ gap: 6 }}>
+            <h1 className={'h-display' + ((shelf ? shelf.name : t('nav.library')).length > 9 ? ' long' : '')} dir="auto">{shelf ? shelf.name : t('nav.library')}</h1>
+            <div className="row top-actions">
               {!shelf && (books.length > 0 || shelves.length > 0) && (
                 <button className="icon-btn" onClick={() => setDialog('new')} aria-label={t('shelf.new')} title={t('shelf.new')}>
                   <FolderPlus size={21} />
@@ -205,8 +205,8 @@ export function LibraryScreen() {
         ) : (
           <>
             <div className="sticky-tools">
-              <div className="row" style={{ marginBottom: 10 }}>
-                <label className="field" style={{ flex: 1 }}>
+              <div className="row tools-row" style={{ marginBottom: 10, gap: 6 }}>
+                <label className="field">
                   <Search size={18} aria-hidden="true" />
                   <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('library.search')} aria-label={t('library.search')} enterKeyHint="search" />
                   {query && (
