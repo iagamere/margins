@@ -10,6 +10,8 @@ export type TextDir = 'auto' | 'rtl' | 'ltr';
 export type TextWeight = 'regular' | 'bold';
 export type TextAlign = 'original' | 'start' | 'justify';
 export type HighlightColor = 'sage' | 'gold' | 'rose' | 'sky';
+/** one look for the whole library: cover tiles · cards (picture on the left, details inside) · names only */
+export type LibraryView = 'covers' | 'cards' | 'names';
 export type LibraryFilter = 'all' | 'reading' | 'completed' | 'recent';
 export type LibrarySort = 'opened' | 'added' | 'title' | 'author' | 'progress';
 
@@ -116,7 +118,7 @@ export interface Settings {
   pdfAdaptTheme: boolean;
   /** PDF: show extracted text re-flowed to the screen instead of the original pages */
   pdfReflow: boolean;
-  libraryView: 'grid' | 'list';
+  libraryView: LibraryView;
   librarySort: LibrarySort;
   /** flips the natural direction of librarySort (newest/A→Z/most read first) */
   libraryReverse: boolean;

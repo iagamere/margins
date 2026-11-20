@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowDownUp, ArrowLeft, ArrowUp, BookCheck, BookPlus, ClipboardPaste, Copy, FolderInput, FolderPlus, LayoutGrid, Library as ShelfIcon, List, Pencil, Plus, Scissors, Search, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowDownUp, ArrowLeft, ArrowUp, BookCheck, BookPlus, ClipboardPaste, Copy, FolderInput, FolderPlus, LayoutGrid, LayoutList, List, Pencil, Plus, Scissors, Search, Trash2, X } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
-import type { BookRecord, LibraryFilter, LibrarySort } from '../lib/types';
-import { BookCard, BookRow } from '../components/BookCard';
+import type { BookRecord, LibraryFilter, LibrarySort, LibraryView } from '../lib/types';
+import { BookCard, BookName, BookRow } from '../components/BookCard';
+import { ShelfItem } from '../components/ShelfViews';
 import { FilePicker, type FilePickerHandle } from '../components/FilePicker';
 import { LogoMark } from '../components/Logo';
 import { Sheet } from '../components/Sheet';
-import { ShelfDialog, ShelfImage } from '../components/ShelfDialog';
+import { ShelfDialog } from '../components/ShelfDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ShelfSheet } from '../components/ShelfSheet';
 import { pushBackHandler } from '../lib/backStack';
 
 const FILTERS: LibraryFilter[] = ['all', 'reading', 'completed', 'recent'];
 const SORTS: LibrarySort[] = ['opened', 'added', 'title', 'author', 'progress'];
+const VIEWS: LibraryView[] = ['covers', 'cards', 'names'];
+const VIEW_ICON = { covers: LayoutGrid, cards: LayoutList, names: List } as const;
 const THIRTY_DAYS = 30 * 24 * 3600 * 1000;
 
 export function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
@@ -119,6 +122,13 @@ export function LibraryScreen() {
     return list;
   }, [books, filter, query, settings.librarySort, settings.libraryReverse, lang, shelf, flat]);
 
+  const view = settings.libraryView;
+  const nextOf = VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
+  const NextIcon = VIEW_ICON[nextOf];
+  const nextView = () => {
+    setSettings({ libraryView: nextOf });
+    toast(`view.${nextOf}.on`, 'info');
+  };
   const activeSort = filter === 'recent' ? 'added' : settings.librarySort;
   const dirKey = (sort: LibrarySort, rev: boolean) => `dir.${sort}.${rev ? 'rev' : 'def'}`;
   const flipOrder = () => {
@@ -224,8 +234,8 @@ export function LibraryScreen() {
                 <button className="icon-btn" onClick={flipOrder} aria-label={t('library.reverse')} title={t(dirKey(activeSort, settings.libraryReverse))}>
                   {settings.libraryReverse ? <ArrowUp size={21} /> : <ArrowDown size={21} />}
                 </button>
-                <button className="icon-btn" onClick={() => setSettings({ libraryView: settings.libraryView === 'grid' ? 'list' : 'grid' })} aria-label={settings.libraryView === 'grid' ? t('library.listView') : t('library.gridView')}>
-                  {settings.libraryView === 'grid' ? <List size={21} /> : <LayoutGrid size={21} />}
+                <button className="icon-btn" onClick={nextView} aria-label={t(`view.${nextOf}`)} title={t(`view.${nextOf}`)}>
+                  <NextIcon size={21} />
                 </button>
               </div>
               <div className="chips" role="group" aria-label={t('library.filter')}>
@@ -240,23 +250,10 @@ export function LibraryScreen() {
             {showTiles && (
               <>
                 <h2 className="eyebrow section-title" style={{ marginBottom: 0 }}>{t('shelf.section')}</h2>
-                <div className="shelves">
-                  {sortedShelves.map((x) => {
-                    const c = countOf(x.id);
-                    return (
-                      <button
-                        key={x.id}
-                        className={'shelf-tile' + (x.color ? ' tinted' : '') + (x.image ? ' has-img' : '')}
-                        style={{ ...(x.color ? { ['--shelf' as string]: x.color } : null), ...(x.image ? { aspectRatio: x.ratio === '1:1' ? '1 / 1' : '2 / 3' } : null) }}
-                        onClick={() => !selecting && setOpenShelf(x.id)}
-                        aria-label={x.name}
-                      >
-                        {x.image ? <ShelfImage blob={x.image} /> : <ShelfIcon size={26} strokeWidth={1.4} aria-hidden="true" />}
-                        <div className="name clamp2" dir="auto">{x.name}</div>
-                        <div className="count">{c === 1 ? t('shelf.one') : t('shelf.count', { count: n(c) })}</div>
-                      </button>
-                    );
-                  })}
+                <div className={view === 'covers' ? 'shelves' : view === 'cards' ? 'stack' : 'list'} style={view === 'covers' ? undefined : { marginTop: 12 }}>
+                  {sortedShelves.map((x) => (
+                    <ShelfItem key={x.id} shelf={x} view={view} count={countOf(x.id)} onOpen={() => !selecting && setOpenShelf(x.id)} />
+                  ))}
                 </div>
               </>
             )}
@@ -266,16 +263,22 @@ export function LibraryScreen() {
                   <p>{query ? t('library.noMatch') : shelf ? t('shelf.empty') : t('library.noneHere')}</p>
                 </div>
               )
-            ) : settings.libraryView === 'grid' ? (
+            ) : view === 'covers' ? (
               <div className="grid" style={{ marginTop: showTiles ? 24 : 16 }}>
                 {shown.map((b) => (
                   <BookCard key={b.id} book={b} {...pressProps(b)} />
                 ))}
               </div>
-            ) : (
-              <div className="list" style={{ marginTop: 8 }}>
+            ) : view === 'cards' ? (
+              <div className="stack" style={{ marginTop: showTiles ? 24 : 16 }}>
                 {shown.map((b) => (
                   <BookRow key={b.id} book={b} {...pressProps(b)} />
+                ))}
+              </div>
+            ) : (
+              <div className="list" style={{ marginTop: showTiles ? 20 : 8 }}>
+                {shown.map((b) => (
+                  <BookName key={b.id} book={b} {...pressProps(b)} />
                 ))}
               </div>
             )}

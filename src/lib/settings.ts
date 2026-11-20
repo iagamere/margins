@@ -32,7 +32,7 @@ export function defaultSettings(): Settings {
     accentCustom: '#6b7fa8',
     savedColors: [],
     pdfReflow: false,
-    libraryView: 'grid',
+    libraryView: 'covers',
     librarySort: 'opened',
     libraryReverse: false,
     ...DEFAULT_READING,
@@ -44,8 +44,11 @@ export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return d;
-    const parsed = JSON.parse(raw) as Partial<Settings>;
-    return { ...d, ...parsed };
+    const parsed = JSON.parse(raw) as Partial<Settings> & { libraryView?: string };
+    // older builds stored 'grid' / 'list'
+    const v = parsed.libraryView;
+    const libraryView = v === 'cards' || v === 'names' || v === 'covers' ? v : v === 'list' ? 'cards' : 'covers';
+    return { ...d, ...parsed, libraryView };
   } catch {
     return d;
   }

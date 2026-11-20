@@ -43,21 +43,36 @@ export function BookCard({ book, onOpen, onLongPress, selecting, selected }: Pro
   );
 }
 
+/** "Cards" view: the cover on the left, the book's details inside the card. */
 export function BookRow({ book, onOpen, onLongPress, selecting, selected }: Props) {
   const { t, n } = useT();
   const pct = Math.round(book.percentage * 100);
   const press = useLongPress(() => onLongPress?.(), onOpen);
   return (
-    <button className={'list-item' + (selected ? ' sel' : '')} {...press} aria-label={book.title} aria-pressed={selecting ? !!selected : undefined}>
-      <BookCover book={book} />
+    <button className={'view-card' + (selected ? ' sel' : '')} {...press} aria-label={book.title} aria-pressed={selecting ? !!selected : undefined}>
+      <div className="thumb"><BookCover book={book} showFormat /></div>
       <div className="meta">
         <div className="title clamp2" dir="auto">{book.title}</div>
         {book.author && <div className="author clamp1" dir="auto">{book.author}</div>}
-        <div className="prog">
-          <span>{book.format.toUpperCase()}</span>
-          {book.finished ? <span>· {t('book.finished')}</span> : book.percentage > 0 ? (<><div className="bar"><i style={{ width: `${pct}%` }} /></div><span>{n(pct)}%</span></>) : <span>· {t('book.notStarted')}</span>}
-        </div>
+        {book.finished ? (
+          <div className="prog">{t('book.finished')}</div>
+        ) : book.percentage > 0 ? (
+          <div className="prog"><div className="bar"><i style={{ width: `${pct}%` }} /></div><span>{n(pct)}%</span></div>
+        ) : (
+          <div className="prog">{t('book.notStarted')}</div>
+        )}
       </div>
+      {selecting && <Mark selected={!!selected} />}
+    </button>
+  );
+}
+
+/** "Names" view: just the title, in a long compact list. */
+export function BookName({ book, onOpen, onLongPress, selecting, selected }: Props) {
+  const press = useLongPress(() => onLongPress?.(), onOpen);
+  return (
+    <button className={'view-name' + (selected ? ' sel' : '')} {...press} aria-label={book.title} aria-pressed={selecting ? !!selected : undefined}>
+      <span className="nm clamp1" dir="auto">{book.title}</span>
       {selecting && <Mark selected={!!selected} />}
     </button>
   );

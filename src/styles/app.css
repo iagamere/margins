@@ -332,3 +332,28 @@ textarea.textarea:focus-visible { outline: none; border-color: var(--accent); }
 .cp-disabled { opacity: 0.35; pointer-events: none; }
 .mkc.custom .lucide, .mkc.custom svg { color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45)); }
 .accent-dot.custom { background: conic-gradient(#b0503f, #c27a3a, #a08a2f, #5f8a5a, #4a7ba6, #7b62a8, #b05a82, #b0503f); }
+
+/* ---------- Library views: covers · cards · names ---------- */
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.view-card, .view-name { position: relative; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; text-align: start; min-width: 0; }
+.view-card { display: flex; align-items: center; gap: 14px; padding: 10px; width: 100%; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); transition: border-color var(--dur), transform 90ms; }
+.view-card:active { transform: scale(0.985); }
+.view-card .thumb { width: 64px; flex: none; }
+.view-card .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.view-card .title { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.view-card .author { color: var(--fg2); font-size: 13px; }
+.view-card .prog { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg2); }
+.view-card .prog .bar { flex: 1; }
+.view-card.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.view-card > .sel-mark { flex: none; border-color: var(--fg2); background: transparent; box-shadow: none; }
+.view-card > .sel-mark.on, .view-name > .sel-mark.on { background: var(--accent-ink); border-color: var(--accent-ink); }
+.view-card.tinted { background: color-mix(in srgb, var(--shelf) 18%, var(--surface)); border-color: color-mix(in srgb, var(--shelf) 50%, var(--border)); border-inline-start: 5px solid var(--shelf); }
+.shelf-mini { width: 56px; flex: none; position: relative; overflow: hidden; border-radius: 4px; background: var(--bg2); box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.shelf-mini.none { aspect-ratio: 1 / 1; display: grid; place-items: center; box-shadow: none; background: color-mix(in srgb, var(--shelf, var(--fg2)) 22%, transparent); }
+.shelf-mini.none svg { color: var(--shelf, var(--accent-ink)); }
+.view-name { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 4px; border-bottom: 1px solid var(--border); font-size: 15.5px; font-weight: 500; }
+.view-name .nm { flex: 1; min-width: 0; }
+.view-name svg { color: var(--fg2); flex: none; }
+.view-name .shelf-dot { margin: 0; }
+.view-name.sel { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.view-name > .sel-mark { border-color: var(--fg2); background: transparent; box-shadow: none; }
