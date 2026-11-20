@@ -98,6 +98,7 @@ export function DetailsScreen({ id }: { id: string }) {
       {newShelf && (
         <ShelfDialog
           title={t('shelf.newTitle')}
+          preferBookIds={[book.id]}
           confirmLabel={t('shelf.create')}
           onCancel={() => setNewShelf(false)}
           onSubmit={({ name, ...style }) => {

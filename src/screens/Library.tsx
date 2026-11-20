@@ -328,6 +328,7 @@ export function LibraryScreen() {
       {dialog === 'newForSel' && (
         <ShelfDialog
           title={t('shelf.newTitle')}
+          preferBookIds={ids}
           confirmLabel={t('shelf.create')}
           onCancel={() => setDialog(null)}
           onSubmit={({ name, ...style }) => {
@@ -399,6 +400,7 @@ export function LibraryScreen() {
       {dialog === 'rename' && shelf && (
         <ShelfDialog
           title={t('shelf.editTitle')}
+          preferBookIds={books.filter((b) => b.shelfId === shelf.id).map((b) => b.id)}
           initial={{ name: shelf.name, color: shelf.color, image: shelf.image, ratio: shelf.ratio, dynamic: shelf.dynamic }}
           confirmLabel={t('common.save')}
           onCancel={() => setDialog(null)}

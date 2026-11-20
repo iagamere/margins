@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Palette, Trash2, Check, Ban } from 'lucide-react';
+import { ImagePlus, Palette, Trash2, Check, Ban, BookImage } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useObjectUrl } from './BookCover';
 import { useT } from '../lib/i18n';
@@ -20,9 +20,20 @@ export function ShelfImage({ blob, className = 'shelf-img' }: { blob?: Blob; cla
   return <img className={className} src={url} alt="" draggable={false} decoding="async" />;
 }
 
+function CoverThumb({ blob, title, onPick }: { blob: Blob; title: string; onPick: () => void }) {
+  const url = useObjectUrl(blob);
+  return (
+    <button type="button" className="cover-pick" onClick={onPick} aria-label={title} title={title}>
+      {url && <img src={url} alt="" loading="lazy" decoding="async" draggable={false} />}
+    </button>
+  );
+}
+
 /** New / edit shelf: name, colour, picture (2:3 or 1:1) and the "dynamic colour" taken from that picture. */
-export function ShelfDialog({ title, confirmLabel, initial, onSubmit, onCancel }: {
+export function ShelfDialog({ title, confirmLabel, initial, preferBookIds, onSubmit, onCancel }: {
   title: string;
+  /** books whose covers are offered first (the shelf's own books, or the ones being put on it) */
+  preferBookIds?: string[];
   confirmLabel: string;
   initial?: ShelfDraft;
   onSubmit: (draft: ShelfDraft) => void;
@@ -38,6 +49,12 @@ export function ShelfDialog({ title, confirmLabel, initial, onSubmit, onCancel }
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const preview = useObjectUrl(image);
+  const books = useApp((s) => s.books);
+  const [picking, setPicking] = useState(false);
+  const withCover = books.filter((b) => b.cover);
+  const first = new Set(preferBookIds ?? []);
+  const near = withCover.filter((b) => first.has(b.id));
+  const rest = withCover.filter((b) => !first.has(b.id));
 
   // dynamic colour follows whatever picture is current
   const syncDynamic = async (blob: Blob) => {
@@ -53,6 +70,22 @@ export function ShelfDialog({ title, confirmLabel, initial, onSubmit, onCancel }
       const cropped = await cropToRatio(f, r);
       setRatio(r);
       setImage(cropped);
+      if (dynamic) await syncDynamic(cropped);
+    } catch {
+      toast('err.shelfImage', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pickCover = async (blob: Blob) => {
+    setBusy(true);
+    try {
+      const r = await suggestRatio(blob);
+      const cropped = await cropToRatio(blob, r);
+      setRatio(r);
+      setImage(cropped);
+      setPicking(false);
       if (dynamic) await syncDynamic(cropped);
     } catch {
       toast('err.shelfImage', 'error');
@@ -128,10 +161,18 @@ export function ShelfDialog({ title, confirmLabel, initial, onSubmit, onCancel }
         <div className="lbl">{t('shelf.image')}</div>
         <input ref={file} type="file" hidden accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pick(f); }} />
         {!image ? (
-          <button type="button" className="btn btn-sm" disabled={busy} onClick={() => file.current?.click()}>
-            <ImagePlus size={18} aria-hidden="true" />
-            {t('shelf.imageAdd')}
-          </button>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-sm" disabled={busy} onClick={() => file.current?.click()}>
+              <ImagePlus size={18} aria-hidden="true" />
+              {t('shelf.imageAdd')}
+            </button>
+            {withCover.length > 0 && (
+              <button type="button" className="btn btn-sm" disabled={busy} aria-expanded={picking} onClick={() => setPicking((v) => !v)}>
+                <BookImage size={18} aria-hidden="true" />
+                {t('shelf.fromBook')}
+              </button>
+            )}
+          </div>
         ) : (
           <>
             <div className="shelf-img-row">
@@ -148,6 +189,12 @@ export function ShelfDialog({ title, confirmLabel, initial, onSubmit, onCancel }
                   <ImagePlus size={16} aria-hidden="true" />
                   {t('shelf.imageChange')}
                 </button>
+                {withCover.length > 0 && (
+                  <button type="button" className="btn btn-sm" disabled={busy} aria-expanded={picking} onClick={() => setPicking((v) => !v)}>
+                    <BookImage size={16} aria-hidden="true" />
+                    {t('shelf.fromBook')}
+                  </button>
+                )}
                 <button type="button" className="btn btn-sm btn-ghost btn-danger" onClick={() => { setImage(undefined); setDynamic(false); }}>
                   <Trash2 size={16} aria-hidden="true" />
                   {t('shelf.imageRemove')}
@@ -162,6 +209,26 @@ export function ShelfDialog({ title, confirmLabel, initial, onSubmit, onCancel }
               <button type="button" role="switch" aria-checked={dynamic} aria-label={t('shelf.dynamic')} className="switch" onClick={() => void toggleDynamic()} />
             </div>
           </>
+        )}
+        {picking && (
+          <div className="cover-picker">
+            {near.length > 0 && (
+              <>
+                <div className="lbl">{t('shelf.coversHere')}</div>
+                <div className="cover-grid">
+                  {near.map((b) => <CoverThumb key={b.id} blob={b.cover!} title={b.title} onPick={() => void pickCover(b.cover!)} />)}
+                </div>
+              </>
+            )}
+            {rest.length > 0 && (
+              <>
+                <div className="lbl">{near.length > 0 ? t('shelf.coversAll') : t('shelf.fromBook')}</div>
+                <div className="cover-grid">
+                  {rest.map((b) => <CoverThumb key={b.id} blob={b.cover!} title={b.title} onPick={() => void pickCover(b.cover!)} />)}
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
     </ConfirmDialog>
