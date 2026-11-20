@@ -659,6 +659,9 @@ export function ReaderScreen({ id }: { id: string }) {
 
       {/* ---------- bottom bar ---------- */}
       <div className={'rbar bottom' + (showBars ? '' : ' hidden')} aria-hidden={!showBars}>
+        {format === 'pdf' && showBars && (
+          <PageJump page={scrubPage ?? curPage} total={total} onGo={(p) => { setOptPage(p); info?.api.goToPage?.(p); }} />
+        )}
         <div className="scrub">
           <button className="icon-btn" onClick={() => info?.api.prevSection()} aria-label={t(format === 'pdf' ? 'reader.prevPage' : 'reader.prevChapter')} tabIndex={showBars ? 0 : -1}>
             <SkipBack className="flip" size={19} />
@@ -834,6 +837,11 @@ export function ReaderScreen({ id }: { id: string }) {
             <SkipForward className="flip" size={19} />
           </button>
         </div>
+        <div className="tools" style={{ direction: rtlUi ? 'rtl' : 'ltr' }}>
+          <ToolButton icon={<List size={22} />} label={t(format === 'pdf' ? 'reader.outline' : 'reader.contents')} onClick={openPanel('toc')} enabled={showBars} />
+          <ToolButton icon={<NotebookPen size={22} />} label={t('reader.notes')} onClick={openPanel('notes')} enabled={showBars} />
+          <ToolButton icon={<Type size={22} />} label={t(format === 'pdf' ? 'reader.view' : 'reader.appearance')} onClick={openPanel('typo')} enabled={showBars} />
+        </div>
         {(prevChap || nextChap) && (
           <div className="chap-nav">
             <button className="chap-btn" disabled={!prevChap} onClick={() => goChapter(prevChap)} aria-label={t('chap.prevAria')} tabIndex={showBars ? 0 : -1}>
@@ -845,14 +853,6 @@ export function ReaderScreen({ id }: { id: string }) {
               <ChevronRight className="flip" size={18} aria-hidden="true" />
             </button>
           </div>
-        )}
-        <div className="tools" style={{ direction: rtlUi ? 'rtl' : 'ltr' }}>
-          <ToolButton icon={<List size={22} />} label={t(format === 'pdf' ? 'reader.outline' : 'reader.contents')} onClick={openPanel('toc')} enabled={showBars} />
-          <ToolButton icon={<NotebookPen size={22} />} label={t('reader.notes')} onClick={openPanel('notes')} enabled={showBars} />
-          <ToolButton icon={<Type size={22} />} label={t(format === 'pdf' ? 'reader.view' : 'reader.appearance')} onClick={openPanel('typo')} enabled={showBars} />
-        </div>
-        {format === 'pdf' && showBars && (
-          <PageJump page={scrubPage ?? curPage} total={total} onGo={(p) => { setOptPage(p); info?.api.goToPage?.(p); }} />
         )}
       </div>
 
