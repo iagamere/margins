@@ -7,7 +7,7 @@ import { BookCard, BookRow } from '../components/BookCard';
 import { FilePicker, type FilePickerHandle } from '../components/FilePicker';
 import { LogoMark } from '../components/Logo';
 import { Sheet } from '../components/Sheet';
-import { NameDialog } from '../components/NameDialog';
+import { ShelfDialog, ShelfImage } from '../components/ShelfDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ShelfSheet } from '../components/ShelfSheet';
 import { pushBackHandler } from '../lib/backStack';
@@ -40,7 +40,7 @@ export function LibraryScreen() {
   const openShelf = useApp((s) => s.openShelf);
   const setOpenShelf = useApp((s) => s.setOpenShelf);
   const createShelf = useApp((s) => s.createShelf);
-  const renameShelf = useApp((s) => s.renameShelf);
+  const updateShelf = useApp((s) => s.updateShelf);
   const deleteShelf = useApp((s) => s.deleteShelf);
   const toast = useApp((s) => s.toast);
   const loaded = useApp((s) => s.booksLoaded);
@@ -171,7 +171,10 @@ export function LibraryScreen() {
             </div>
           )}
           <div className="top">
-            <h1 className={'h-display' + ((shelf ? shelf.name : t('nav.library')).length > 9 ? ' long' : '')} dir="auto">{shelf ? shelf.name : t('nav.library')}</h1>
+            <h1 className={'h-display' + ((shelf ? shelf.name : t('nav.library')).length > 9 ? ' long' : '')} dir="auto">
+              {shelf?.color && <i className="shelf-dot big" style={{ background: shelf.color }} aria-hidden="true" />}
+              {shelf ? shelf.name : t('nav.library')}
+            </h1>
             <div className="row top-actions">
               {!shelf && (books.length > 0 || shelves.length > 0) && (
                 <button className="icon-btn" onClick={() => setDialog('new')} aria-label={t('shelf.new')} title={t('shelf.new')}>
@@ -190,7 +193,7 @@ export function LibraryScreen() {
             <div className="row" style={{ gap: 8 }}>
               <button className="btn btn-sm btn-ghost" onClick={() => setDialog('rename')}>
                 <Pencil size={16} aria-hidden="true" />
-                {t('shelf.rename')}
+                {t('shelf.edit')}
               </button>
               <button className="btn btn-sm btn-ghost btn-danger" onClick={() => setDialog('delete')}>
                 <Trash2 size={16} aria-hidden="true" />
@@ -241,8 +244,14 @@ export function LibraryScreen() {
                   {sortedShelves.map((x) => {
                     const c = countOf(x.id);
                     return (
-                      <button key={x.id} className="shelf-tile" onClick={() => !selecting && setOpenShelf(x.id)} aria-label={x.name}>
-                        <ShelfIcon size={26} strokeWidth={1.4} aria-hidden="true" />
+                      <button
+                        key={x.id}
+                        className={'shelf-tile' + (x.color ? ' tinted' : '') + (x.image ? ' has-img' : '')}
+                        style={{ ...(x.color ? { ['--shelf' as string]: x.color } : null), ...(x.image ? { aspectRatio: x.ratio === '1:1' ? '1 / 1' : '2 / 3' } : null) }}
+                        onClick={() => !selecting && setOpenShelf(x.id)}
+                        aria-label={x.name}
+                      >
+                        {x.image ? <ShelfImage blob={x.image} /> : <ShelfIcon size={26} strokeWidth={1.4} aria-hidden="true" />}
                         <div className="name clamp2" dir="auto">{x.name}</div>
                         <div className="count">{c === 1 ? t('shelf.one') : t('shelf.count', { count: n(c) })}</div>
                       </button>
@@ -317,13 +326,13 @@ export function LibraryScreen() {
         />
       )}
       {dialog === 'newForSel' && (
-        <NameDialog
+        <ShelfDialog
           title={t('shelf.newTitle')}
           confirmLabel={t('shelf.create')}
           onCancel={() => setDialog(null)}
-          onSubmit={(name) => {
+          onSubmit={({ name, ...style }) => {
             setDialog(null);
-            moveSelTo(createShelf(name), name);
+            moveSelTo(createShelf(name, style), name);
           }}
         />
       )}
@@ -377,25 +386,25 @@ export function LibraryScreen() {
       )}
 
       {dialog === 'new' && (
-        <NameDialog
+        <ShelfDialog
           title={t('shelf.newTitle')}
           confirmLabel={t('shelf.create')}
           onCancel={() => setDialog(null)}
-          onSubmit={(name) => {
+          onSubmit={({ name, ...style }) => {
             setDialog(null);
-            setOpenShelf(createShelf(name));
+            setOpenShelf(createShelf(name, style));
           }}
         />
       )}
       {dialog === 'rename' && shelf && (
-        <NameDialog
-          title={t('shelf.renameTitle')}
-          initial={shelf.name}
+        <ShelfDialog
+          title={t('shelf.editTitle')}
+          initial={{ name: shelf.name, color: shelf.color, image: shelf.image, ratio: shelf.ratio, dynamic: shelf.dynamic }}
           confirmLabel={t('common.save')}
           onCancel={() => setDialog(null)}
-          onSubmit={(name) => {
+          onSubmit={({ name, ...style }) => {
             setDialog(null);
-            renameShelf(shelf.id, name);
+            updateShelf(shelf.id, { name, ...style });
           }}
         />
       )}

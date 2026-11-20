@@ -5,7 +5,7 @@ import { useT } from '../lib/i18n';
 import { BookCover } from '../components/BookCover';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ShelfSheet } from '../components/ShelfSheet';
-import { NameDialog } from '../components/NameDialog';
+import { ShelfDialog } from '../components/ShelfDialog';
 import { formatBytes, formatDate } from '../lib/utils';
 
 export function DetailsScreen({ id }: { id: string }) {
@@ -96,13 +96,13 @@ export function DetailsScreen({ id }: { id: string }) {
         />
       )}
       {newShelf && (
-        <NameDialog
+        <ShelfDialog
           title={t('shelf.newTitle')}
           confirmLabel={t('shelf.create')}
           onCancel={() => setNewShelf(false)}
-          onSubmit={(name) => {
+          onSubmit={({ name, ...style }) => {
             setNewShelf(false);
-            moveBook(book.id, createShelf(name));
+            moveBook(book.id, createShelf(name, style));
             toast('shelf.moved', 'info', { name });
           }}
         />

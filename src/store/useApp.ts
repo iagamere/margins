@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { clearAllData, deleteBook, duplicateBook, getAllBooks, getShelves, patchBook, saveShelves } from '../lib/db';
 import { clearSettings, defaultSettings, loadSettings, saveSettings } from '../lib/settings';
 import { importFile, type ImportResult } from '../lib/importer';
-import type { BookRecord, Route, Settings, ShelfRecord, ThemeName } from '../lib/types';
+import type { BookRecord, Route, Settings, ShelfRecord, ShelfStyle, ThemeName } from '../lib/types';
 import { uid } from '../lib/utils';
 import { TRIM_VERSION, trimExistingCovers } from '../lib/trim';
 import { AppError } from '../lib/types';
@@ -45,8 +45,9 @@ interface AppState {
   moveBooks(ids: string[], shelfId: string | undefined): void;
   removeBooks(ids: string[]): Promise<void>;
   pasteClipboard(shelfId: string | undefined): Promise<void>;
-  createShelf(name: string): string;
+  createShelf(name: string, style?: ShelfStyle): string;
   renameShelf(id: string, name: string): void;
+  updateShelf(id: string, patch: Partial<ShelfRecord>): void;
   deleteShelf(id: string): void;
   moveBook(bookId: string, shelfId: string | undefined): void;
   updateBook(id: string, patch: Partial<BookRecord>): void;
@@ -212,8 +213,8 @@ export const useApp = create<AppState>((set, get) => ({
     if (ids.length) get().toast('clip.pasted', 'success', { count: ids.length });
   },
 
-  createShelf(name) {
-    const shelf: ShelfRecord = { id: uid(), name: name.trim(), createdAt: Date.now() };
+  createShelf(name, style) {
+    const shelf: ShelfRecord = { id: uid(), name: name.trim(), createdAt: Date.now(), ...style };
     const shelves = [...get().shelves, shelf];
     set({ shelves });
     void saveShelves(shelves).catch(() => undefined);
@@ -224,6 +225,12 @@ export const useApp = create<AppState>((set, get) => ({
     const shelves = get().shelves.map((s) => (s.id === id ? { ...s, name: name.trim() } : s));
     set({ shelves });
     void saveShelves(shelves).catch(() => undefined);
+  },
+
+  updateShelf(id, patch) {
+    const shelves = get().shelves.map((s) => (s.id === id ? { ...s, ...patch, name: patch.name !== undefined ? patch.name.trim() : s.name } : s));
+    set({ shelves });
+    void saveShelves(shelves).catch(() => get().toast('err.storageUnavailable', 'error'));
   },
 
   deleteShelf(id) {

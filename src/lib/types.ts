@@ -42,11 +42,23 @@ export interface BookRecord {
   shelfId?: string;
 }
 
+export type ShelfRatio = '2:3' | '1:1';
+
 export interface ShelfRecord {
   id: string;
   name: string;
   createdAt: number;
+  /** '#rrggbb' accent of this shelf (unset = default look) */
+  color?: string;
+  /** shelf picture, already cropped to `ratio` */
+  image?: Blob;
+  ratio?: ShelfRatio;
+  /** the colour is taken from the picture ("dynamic colour") */
+  dynamic?: boolean;
 }
+
+/** What the shelf dialog edits. */
+export type ShelfStyle = Pick<ShelfRecord, 'color' | 'image' | 'ratio' | 'dynamic'>;
 
 export interface AnnotationRecord {
   id: string;

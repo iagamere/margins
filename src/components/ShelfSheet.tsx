@@ -12,7 +12,7 @@ export function ShelfSheet({ current, onPick, onNew, onClose }: {
 }) {
   const { t } = useT();
   const shelves = useApp((s) => s.shelves);
-  const rows = [{ id: undefined as string | undefined, name: t('shelf.none') }, ...shelves];
+  const rows = [{ id: undefined as string | undefined, name: t('shelf.none'), color: undefined as string | undefined }, ...shelves];
   return (
     <Sheet title={t('shelf.moveTo')} onClose={onClose}>
       <div className="list">
@@ -20,6 +20,7 @@ export function ShelfSheet({ current, onPick, onNew, onClose }: {
           const on = current !== false && current === x.id;
           return (
             <button key={x.id ?? 'none'} className="toc-item" style={{ minHeight: 52 }} onClick={() => onPick(x.id)}>
+              {x.id && <i className="shelf-dot" style={{ background: x.color ?? 'var(--border)' }} aria-hidden="true" />}
               <span dir="auto" style={{ flex: 1, fontWeight: on ? 600 : 400, color: on ? 'var(--accent-ink)' : undefined }}>{x.name}</span>
               {on && <Check size={18} aria-hidden="true" />}
             </button>
