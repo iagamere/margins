@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Library as ShelfIcon, Plus, Trash2 } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
 import { BookCover } from '../components/BookCover';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Sheet } from '../components/Sheet';
+import { NameDialog } from '../components/NameDialog';
 import { formatBytes, formatDate } from '../lib/utils';
 
 export function DetailsScreen({ id }: { id: string }) {
@@ -14,6 +16,12 @@ export function DetailsScreen({ id }: { id: string }) {
   const removeBook = useApp((s) => s.removeBook);
   const updateBook = useApp((s) => s.updateBook);
   const [confirm, setConfirm] = useState(false);
+  const shelves = useApp((s) => s.shelves);
+  const moveBook = useApp((s) => s.moveBook);
+  const createShelf = useApp((s) => s.createShelf);
+  const toast = useApp((s) => s.toast);
+  const [shelfSheet, setShelfSheet] = useState(false);
+  const [newShelf, setNewShelf] = useState(false);
 
   if (!book) {
     return (
@@ -29,6 +37,8 @@ export function DetailsScreen({ id }: { id: string }) {
     [t('details.added'), formatDate(book.addedAt, lang)],
   ];
   if (book.pages) facts.splice(2, 0, [t('details.pages'), n(book.pages)]);
+  const shelfName = shelves.find((x) => x.id === book.shelfId)?.name;
+  if (shelfName) facts.push([t('shelf.inShelf'), shelfName]);
   if (book.lastOpenedAt) facts.push([t('details.lastOpened'), formatDate(book.lastOpenedAt, lang)]);
 
   return (
@@ -55,6 +65,10 @@ export function DetailsScreen({ id }: { id: string }) {
                 <Check size={19} aria-hidden="true" />
                 {book.finished ? t('details.markUnread') : t('details.markRead')}
               </button>
+              <button className="btn" onClick={() => setShelfSheet(true)}>
+                <ShelfIcon size={19} aria-hidden="true" />
+                {t('shelf.moveTo')}
+              </button>
               <button className="btn btn-ghost btn-danger" onClick={() => setConfirm(true)}>
                 <Trash2 size={19} aria-hidden="true" />
                 {t('details.remove')}
@@ -68,6 +82,47 @@ export function DetailsScreen({ id }: { id: string }) {
           </div>
         </div>
       </div>
+      {shelfSheet && (
+        <Sheet title={t('shelf.moveTo')} onClose={() => setShelfSheet(false)}>
+          <div className="list">
+            {[{ id: undefined as string | undefined, name: t('shelf.none') }, ...shelves].map((x) => {
+              const on = (book.shelfId ?? undefined) === x.id;
+              return (
+                <button
+                  key={x.id ?? 'none'}
+                  className="toc-item"
+                  style={{ minHeight: 52 }}
+                  onClick={() => {
+                    setShelfSheet(false);
+                    if (on) return;
+                    moveBook(book.id, x.id);
+                    toast(x.id ? 'shelf.moved' : 'shelf.unshelved', 'info', { name: x.name });
+                  }}
+                >
+                  <span dir="auto" style={{ flex: 1, fontWeight: on ? 600 : 400, color: on ? 'var(--accent-ink)' : undefined }}>{x.name}</span>
+                  {on && <Check size={18} aria-hidden="true" />}
+                </button>
+              );
+            })}
+            <button className="toc-item" style={{ minHeight: 52, color: 'var(--accent-ink)' }} onClick={() => { setShelfSheet(false); setNewShelf(true); }}>
+              <Plus size={18} aria-hidden="true" />
+              <span>{t('shelf.new')}</span>
+            </button>
+          </div>
+        </Sheet>
+      )}
+      {newShelf && (
+        <NameDialog
+          title={t('shelf.newTitle')}
+          confirmLabel={t('shelf.create')}
+          onCancel={() => setNewShelf(false)}
+          onSubmit={(name) => {
+            setNewShelf(false);
+            moveBook(book.id, createShelf(name));
+            toast('shelf.moved', 'info', { name });
+          }}
+        />
+      )}
       {confirm && (
         <ConfirmDialog
           title={t('details.removeTitle')}

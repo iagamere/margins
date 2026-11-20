@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { ArrowDownUp, BookPlus, LayoutGrid, List, Plus, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowDownUp, ArrowLeft, ArrowUp, BookPlus, FolderPlus, LayoutGrid, Library as ShelfIcon, List, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
 import type { BookRecord, LibraryFilter, LibrarySort } from '../lib/types';
@@ -7,6 +7,9 @@ import { BookCard, BookRow } from '../components/BookCard';
 import { FilePicker, type FilePickerHandle } from '../components/FilePicker';
 import { LogoMark } from '../components/Logo';
 import { Sheet } from '../components/Sheet';
+import { NameDialog } from '../components/NameDialog';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { pushBackHandler } from '../lib/backStack';
 
 const FILTERS: LibraryFilter[] = ['all', 'reading', 'completed', 'recent'];
 const SORTS: LibrarySort[] = ['opened', 'added', 'title', 'author', 'progress'];
@@ -30,8 +33,15 @@ export function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
 }
 
 export function LibraryScreen() {
-  const { t, lang } = useT();
+  const { t, n, lang } = useT();
   const books = useApp((s) => s.books);
+  const shelves = useApp((s) => s.shelves);
+  const openShelf = useApp((s) => s.openShelf);
+  const setOpenShelf = useApp((s) => s.setOpenShelf);
+  const createShelf = useApp((s) => s.createShelf);
+  const renameShelf = useApp((s) => s.renameShelf);
+  const deleteShelf = useApp((s) => s.deleteShelf);
+  const toast = useApp((s) => s.toast);
   const loaded = useApp((s) => s.booksLoaded);
   const settings = useApp((s) => s.settings);
   const setSettings = useApp((s) => s.setSettings);
@@ -39,11 +49,34 @@ export function LibraryScreen() {
   const [filter, setFilter] = useState<LibraryFilter>('all');
   const [query, setQuery] = useState('');
   const [sortOpen, setSortOpen] = useState(false);
+  const [dialog, setDialog] = useState<null | 'new' | 'rename' | 'delete'>(null);
   const picker = useRef<FilePickerHandle>(null);
+
+  const shelf = shelves.find((x) => x.id === openShelf) ?? null;
+  // A shelf that no longer exists (deleted) must not leave the library stuck on it.
+  useEffect(() => {
+    if (openShelf && loaded && !shelf) setOpenShelf(null);
+  }, [openShelf, loaded, shelf, setOpenShelf]);
+  // Android back / Esc leaves the shelf first.
+  useEffect(() => {
+    if (!shelf) return;
+    return pushBackHandler(() => setOpenShelf(null));
+  }, [shelf?.id, setOpenShelf]);
+
+  const flat = filter !== 'all' || query.trim() !== '';
+  const showTiles = !shelf && !flat && shelves.length > 0;
+  const sortedShelves = useMemo(() => {
+    const coll = new Intl.Collator(lang, { sensitivity: 'base', numeric: true });
+    return [...shelves].sort((a, b) => coll.compare(a.name, b.name));
+  }, [shelves, lang]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = books.filter((b) => {
+      // On the library root, books that sit on a shelf live inside it; searching or filtering looks everywhere.
+      if (shelf) {
+        if (b.shelfId !== shelf.id) return false;
+      } else if (!flat && b.shelfId) return false;
       if (q && !(b.title.toLowerCase().includes(q) || (b.author ?? '').toLowerCase().includes(q))) return false;
       if (filter === 'reading') return b.percentage > 0 && !b.finished;
       if (filter === 'completed') return b.finished;
@@ -52,41 +85,82 @@ export function LibraryScreen() {
     });
     const coll = new Intl.Collator(lang, { sensitivity: 'base', numeric: true });
     const sort = filter === 'recent' ? 'added' : settings.librarySort;
+    const sign = settings.libraryReverse ? -1 : 1;
     list = [...list].sort((a: BookRecord, b: BookRecord) => {
       switch (sort) {
-        case 'title': return coll.compare(a.title, b.title);
-        case 'author': return coll.compare(a.author ?? '￿', b.author ?? '￿');
-        case 'progress': return b.percentage - a.percentage;
-        case 'added': return b.addedAt - a.addedAt;
-        default: return (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0) || b.addedAt - a.addedAt;
+        case 'title': return sign * coll.compare(a.title, b.title);
+        case 'author': {
+          // books without an author always stay at the end, whatever the direction
+          if (!a.author || !b.author) return !a.author && !b.author ? 0 : !a.author ? 1 : -1;
+          return sign * coll.compare(a.author, b.author);
+        }
+        case 'progress': return sign * (b.percentage - a.percentage);
+        case 'added': return sign * (b.addedAt - a.addedAt);
+        default: return sign * ((b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0) || b.addedAt - a.addedAt);
       }
     });
     return list;
-  }, [books, filter, query, settings.librarySort, lang]);
+  }, [books, filter, query, settings.librarySort, settings.libraryReverse, lang, shelf, flat]);
+
+  const activeSort = filter === 'recent' ? 'added' : settings.librarySort;
+  const dirKey = (sort: LibrarySort, rev: boolean) => `dir.${sort}.${rev ? 'rev' : 'def'}`;
+  const flipOrder = () => {
+    const rev = !settings.libraryReverse;
+    setSettings({ libraryReverse: rev });
+    toast(dirKey(activeSort, rev), 'info');
+  };
+  const countOf = (id: string) => books.filter((b) => b.shelfId === id).length;
 
   const open = (b: BookRecord) => navigate({ name: 'details', id: b.id });
 
   return (
     <div className="screen">
       <div className="screen-pad">
-        <FilePicker ref={picker} />
+        <FilePicker ref={picker} shelfId={shelf?.id} />
         <header className="page-head">
-          <div className="brand mobile-brand" aria-hidden="true">
-            <LogoMark />
-            <span>Margins</span>
-          </div>
-          <div className="top">
-            <h1 className="h-display">{t('nav.library')}</h1>
-            {books.length > 0 && (
-              <button className="btn btn-sm" onClick={() => picker.current?.open()}>
-                <Plus size={18} aria-hidden="true" />
-                {t('library.add')}
+          {shelf ? (
+            <div style={{ marginInline: -10, marginBottom: -6 }}>
+              <button className="icon-btn" onClick={() => setOpenShelf(null)} aria-label={t('common.back')}>
+                <ArrowLeft className="flip" size={22} />
               </button>
-            )}
+            </div>
+          ) : (
+            <div className="brand mobile-brand" aria-hidden="true">
+              <LogoMark />
+              <span>Margins</span>
+            </div>
+          )}
+          <div className="top">
+            <h1 className="h-display" dir="auto">{shelf ? shelf.name : t('nav.library')}</h1>
+            <div className="row" style={{ gap: 6 }}>
+              {!shelf && (books.length > 0 || shelves.length > 0) && (
+                <button className="icon-btn" onClick={() => setDialog('new')} aria-label={t('shelf.new')} title={t('shelf.new')}>
+                  <FolderPlus size={21} />
+                </button>
+              )}
+              {(books.length > 0 || shelf) && (
+                <button className="btn btn-sm" onClick={() => picker.current?.open()}>
+                  <Plus size={18} aria-hidden="true" />
+                  {t('library.add')}
+                </button>
+              )}
+            </div>
           </div>
+          {shelf && (
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn btn-sm btn-ghost" onClick={() => setDialog('rename')}>
+                <Pencil size={16} aria-hidden="true" />
+                {t('shelf.rename')}
+              </button>
+              <button className="btn btn-sm btn-ghost btn-danger" onClick={() => setDialog('delete')}>
+                <Trash2 size={16} aria-hidden="true" />
+                {t('shelf.delete')}
+              </button>
+            </div>
+          )}
         </header>
 
-        {loaded && books.length === 0 ? (
+        {loaded && books.length === 0 && shelves.length === 0 ? (
           <EmptyLibrary onAdd={() => picker.current?.open()} />
         ) : (
           <>
@@ -104,6 +178,9 @@ export function LibraryScreen() {
                 <button className="icon-btn" onClick={() => setSortOpen(true)} aria-label={t('library.sort')}>
                   <ArrowDownUp size={21} />
                 </button>
+                <button className="icon-btn" onClick={flipOrder} aria-label={t('library.reverse')} title={t(dirKey(activeSort, settings.libraryReverse))}>
+                  {settings.libraryReverse ? <ArrowUp size={21} /> : <ArrowDown size={21} />}
+                </button>
                 <button className="icon-btn" onClick={() => setSettings({ libraryView: settings.libraryView === 'grid' ? 'list' : 'grid' })} aria-label={settings.libraryView === 'grid' ? t('library.listView') : t('library.gridView')}>
                   {settings.libraryView === 'grid' ? <List size={21} /> : <LayoutGrid size={21} />}
                 </button>
@@ -117,12 +194,31 @@ export function LibraryScreen() {
               </div>
             </div>
 
+            {showTiles && (
+              <>
+                <h2 className="eyebrow section-title" style={{ marginBottom: 0 }}>{t('shelf.section')}</h2>
+                <div className="shelves">
+                  {sortedShelves.map((x) => {
+                    const c = countOf(x.id);
+                    return (
+                      <button key={x.id} className="shelf-tile" onClick={() => setOpenShelf(x.id)} aria-label={x.name}>
+                        <ShelfIcon size={26} strokeWidth={1.4} aria-hidden="true" />
+                        <div className="name clamp2" dir="auto">{x.name}</div>
+                        <div className="count">{c === 1 ? t('shelf.one') : t('shelf.count', { count: n(c) })}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
             {shown.length === 0 ? (
-              <div className="empty">
-                <p>{query ? t('library.noMatch') : t('library.noneHere')}</p>
-              </div>
+              showTiles ? null : (
+                <div className="empty">
+                  <p>{query ? t('library.noMatch') : shelf ? t('shelf.empty') : t('library.noneHere')}</p>
+                </div>
+              )
             ) : settings.libraryView === 'grid' ? (
-              <div className="grid" style={{ marginTop: 16 }}>
+              <div className="grid" style={{ marginTop: showTiles ? 24 : 16 }}>
                 {shown.map((b) => (
                   <BookCard key={b.id} book={b} onOpen={() => open(b)} />
                 ))}
@@ -142,21 +238,71 @@ export function LibraryScreen() {
       {sortOpen && (
         <Sheet title={t('library.sort')} onClose={() => setSortOpen(false)}>
           <div className="list">
-            {SORTS.map((s) => (
-              <button
-                key={s}
-                className="toc-item"
-                style={{ minHeight: 52 }}
-                onClick={() => {
-                  setSettings({ librarySort: s });
-                  setSortOpen(false);
-                }}
-              >
-                <span style={{ flex: 1, fontWeight: settings.librarySort === s ? 600 : 400, color: settings.librarySort === s ? 'var(--accent-ink)' : undefined }}>{t(`sort.${s}`)}</span>
-              </button>
-            ))}
+            {SORTS.map((x) => {
+              const on = settings.librarySort === x;
+              return (
+                <button
+                  key={x}
+                  className="toc-item"
+                  style={{ minHeight: 52 }}
+                  onClick={() => {
+                    // Picking the current sort again reverses it; picking another starts from its natural order.
+                    if (on) setSettings({ libraryReverse: !settings.libraryReverse });
+                    else {
+                      setSettings({ librarySort: x, libraryReverse: false });
+                      setSortOpen(false);
+                    }
+                  }}
+                >
+                  <span style={{ fontWeight: on ? 600 : 400, color: on ? 'var(--accent-ink)' : undefined }}>{t(`sort.${x}`)}</span>
+                  {on && (
+                    <span className="sort-dir">
+                      {t(dirKey(x, settings.libraryReverse))}
+                      {settings.libraryReverse ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </Sheet>
+      )}
+
+      {dialog === 'new' && (
+        <NameDialog
+          title={t('shelf.newTitle')}
+          confirmLabel={t('shelf.create')}
+          onCancel={() => setDialog(null)}
+          onSubmit={(name) => {
+            setDialog(null);
+            setOpenShelf(createShelf(name));
+          }}
+        />
+      )}
+      {dialog === 'rename' && shelf && (
+        <NameDialog
+          title={t('shelf.renameTitle')}
+          initial={shelf.name}
+          confirmLabel={t('common.save')}
+          onCancel={() => setDialog(null)}
+          onSubmit={(name) => {
+            setDialog(null);
+            renameShelf(shelf.id, name);
+          }}
+        />
+      )}
+      {dialog === 'delete' && shelf && (
+        <ConfirmDialog
+          title={t('shelf.delete')}
+          body={t('shelf.deleteBody')}
+          confirmLabel={t('common.delete')}
+          danger
+          onCancel={() => setDialog(null)}
+          onConfirm={() => {
+            setDialog(null);
+            deleteShelf(shelf.id);
+          }}
+        />
       )}
     </div>
   );

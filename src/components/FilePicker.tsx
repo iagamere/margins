@@ -6,7 +6,7 @@ export interface FilePickerHandle {
 }
 
 /** Hidden multi-file input shared by every "Add book" entry point. */
-export const FilePicker = forwardRef<FilePickerHandle, { onImported?: (id: string | null) => void }>(function FilePicker({ onImported }, ref) {
+export const FilePicker = forwardRef<FilePickerHandle, { onImported?: (id: string | null) => void; shelfId?: string }>(function FilePicker({ onImported, shelfId }, ref) {
   const input = useRef<HTMLInputElement>(null);
   const importFiles = useApp((s) => s.importFiles);
   useImperativeHandle(ref, () => ({ open: () => input.current?.click() }));
@@ -20,7 +20,7 @@ export const FilePicker = forwardRef<FilePickerHandle, { onImported?: (id: strin
       onChange={async (e) => {
         const files = Array.from(e.target.files ?? []);
         e.target.value = '';
-        const last = await importFiles(files);
+        const last = await importFiles(files, shelfId);
         onImported?.(last?.id ?? null);
       }}
     />

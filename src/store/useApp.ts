@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { clearAllData, deleteBook, getAllBooks, patchBook } from '../lib/db';
+import { clearAllData, deleteBook, getAllBooks, getShelves, patchBook, saveShelves } from '../lib/db';
 import { clearSettings, defaultSettings, loadSettings, saveSettings } from '../lib/settings';
 import { importFile, type ImportResult } from '../lib/importer';
-import type { BookRecord, Route, Settings, ThemeName } from '../lib/types';
+import type { BookRecord, Route, Settings, ShelfRecord, ThemeName } from '../lib/types';
 import { uid } from '../lib/utils';
 
 export interface Toast {
@@ -16,6 +16,9 @@ export interface Toast {
 interface AppState {
   settings: Settings;
   books: BookRecord[];
+  shelves: ShelfRecord[];
+  /** shelf currently opened in the library (kept when going to a book and back) */
+  openShelf: string | null;
   booksLoaded: boolean;
   route: Route;
   history: Route[];
@@ -32,7 +35,12 @@ interface AppState {
   navigate(r: Route, opts?: { replace?: boolean }): void;
   back(): boolean;
 
-  importFiles(files: File[]): Promise<BookRecord | null>;
+  importFiles(files: File[], shelfId?: string): Promise<BookRecord | null>;
+  setOpenShelf(id: string | null): void;
+  createShelf(name: string): string;
+  renameShelf(id: string, name: string): void;
+  deleteShelf(id: string): void;
+  moveBook(bookId: string, shelfId: string | undefined): void;
   updateBook(id: string, patch: Partial<BookRecord>): void;
   removeBook(id: string): Promise<void>;
   resetEverything(): Promise<void>;
@@ -44,6 +52,8 @@ interface AppState {
 export const useApp = create<AppState>((set, get) => ({
   settings: loadSettings(),
   books: [],
+  shelves: [],
+  openShelf: null,
   booksLoaded: false,
   route: { name: 'library' },
   history: [],
@@ -54,7 +64,8 @@ export const useApp = create<AppState>((set, get) => ({
   async init() {
     try {
       const books = await getAllBooks();
-      set({ books, booksLoaded: true });
+      const shelves = await getShelves().catch(() => [] as ShelfRecord[]);
+      set({ books, shelves, booksLoaded: true });
     } catch {
       set({ books: [], booksLoaded: true });
       get().toast('err.storageUnavailable', 'error');
@@ -109,7 +120,7 @@ export const useApp = create<AppState>((set, get) => ({
     return true;
   },
 
-  async importFiles(files) {
+  async importFiles(files, shelfId) {
     if (!files.length) return null;
     set({ importing: { done: 0, total: files.length } });
     let last: BookRecord | null = null;
@@ -123,8 +134,10 @@ export const useApp = create<AppState>((set, get) => ({
       }
       if (res.status === 'added') {
         added++;
-        last = res.book;
-        set({ books: [res.book, ...get().books] });
+        const book = shelfId ? { ...res.book, shelfId } : res.book;
+        last = book;
+        if (shelfId) void patchBook(book.id, { shelfId }).catch(() => undefined);
+        set({ books: [book, ...get().books] });
       } else if (res.status === 'duplicate') {
         last = res.book;
         get().toast('import.duplicate', 'info', { title: res.book.title });
@@ -137,6 +150,37 @@ export const useApp = create<AppState>((set, get) => ({
     if (added === 1 && files.length === 1) get().toast('import.added', 'success', { title: last!.title });
     else if (added > 0) get().toast('import.addedMany', 'success', { count: added });
     return last;
+  },
+
+  setOpenShelf(id) {
+    set({ openShelf: id });
+  },
+
+  createShelf(name) {
+    const shelf: ShelfRecord = { id: uid(), name: name.trim(), createdAt: Date.now() };
+    const shelves = [...get().shelves, shelf];
+    set({ shelves });
+    void saveShelves(shelves).catch(() => undefined);
+    return shelf.id;
+  },
+
+  renameShelf(id, name) {
+    const shelves = get().shelves.map((s) => (s.id === id ? { ...s, name: name.trim() } : s));
+    set({ shelves });
+    void saveShelves(shelves).catch(() => undefined);
+  },
+
+  deleteShelf(id) {
+    // The books stay in the library; they just come off the shelf.
+    for (const b of get().books) if (b.shelfId === id) get().updateBook(b.id, { shelfId: undefined });
+    const shelves = get().shelves.filter((s) => s.id !== id);
+    set({ shelves, openShelf: get().openShelf === id ? null : get().openShelf });
+    void saveShelves(shelves).catch(() => undefined);
+    get().toast('shelf.deleted', 'info');
+  },
+
+  moveBook(bookId, shelfId) {
+    get().updateBook(bookId, { shelfId });
   },
 
   updateBook(id, patch) {
@@ -161,7 +205,7 @@ export const useApp = create<AppState>((set, get) => ({
       /* ignore */
     }
     clearSettings();
-    set({ books: [], settings: defaultSettings(), route: { name: 'library' }, history: [] });
+    set({ books: [], shelves: [], openShelf: null, settings: defaultSettings(), route: { name: 'library' }, history: [] });
     get().toast('settings.cleared', 'info');
   },
 

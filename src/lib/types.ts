@@ -33,6 +33,14 @@ export interface BookRecord {
   pages?: number;
   /** PDF: this book is read in text-reflow mode */
   pdfReflow?: boolean;
+  /** the shelf this book sits on (none = loose in the library) */
+  shelfId?: string;
+}
+
+export interface ShelfRecord {
+  id: string;
+  name: string;
+  createdAt: number;
 }
 
 export interface AnnotationRecord {
@@ -85,6 +93,8 @@ export interface Settings {
   pdfReflow: boolean;
   libraryView: 'grid' | 'list';
   librarySort: LibrarySort;
+  /** flips the natural direction of librarySort (newest/A→Z/most read first) */
+  libraryReverse: boolean;
 }
 
 export type Route =

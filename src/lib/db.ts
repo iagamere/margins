@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import { AppError, type AnnotationRecord, type BookRecord } from './types';
+import { AppError, type AnnotationRecord, type BookRecord, type ShelfRecord } from './types';
 
 interface MarginsDB extends DBSchema {
   books: { key: string; value: BookRecord; indexes: { 'by-hash': string } };
@@ -131,6 +131,16 @@ export async function kvGet<T>(key: string): Promise<T | undefined> {
 
 export async function kvSet(key: string, value: unknown): Promise<void> {
   await (await getDb()).put('kv', value, key);
+}
+
+/* ---------- Shelves (stored in kv: no schema change) ---------- */
+
+export async function getShelves(): Promise<ShelfRecord[]> {
+  return (await kvGet<ShelfRecord[]>('shelves')) ?? [];
+}
+
+export async function saveShelves(list: ShelfRecord[]): Promise<void> {
+  await kvSet('shelves', list);
 }
 
 /* ---------- Maintenance ---------- */

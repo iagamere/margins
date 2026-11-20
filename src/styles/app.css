@@ -240,3 +240,14 @@ textarea.textarea:focus-visible { outline: none; border-color: var(--accent); }
 .update-banner > span { flex: 1; }
 .update-banner .btn { min-height: 38px; padding: 0 16px; font-size: 14px; }
 .update-banner .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; color: var(--fg2); }
+.name-input { height: 46px; padding: 0 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 16px; color: inherit; width: 100%; }
+.name-input:focus-visible { outline: none; border-color: var(--accent); }
+.shelves { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+.shelf-tile { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: start; padding: 14px; min-height: 104px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); transition: border-color var(--dur), transform 90ms; min-width: 0; }
+.shelf-tile:hover { border-color: color-mix(in srgb, var(--fg) 25%, var(--border)); }
+.shelf-tile:active { transform: scale(0.98); }
+.shelf-tile svg { color: var(--accent-ink); }
+[data-theme='dark'] .shelf-tile svg { color: var(--accent); }
+.shelf-tile .name { font-weight: 600; font-size: 15px; line-height: 1.3; margin-top: auto; max-width: 100%; }
+.shelf-tile .count { font-size: 12.5px; color: var(--fg2); }
+.sort-dir { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg2); }

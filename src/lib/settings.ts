@@ -31,6 +31,7 @@ export function defaultSettings(): Settings {
     pdfReflow: false,
     libraryView: 'grid',
     librarySort: 'opened',
+    libraryReverse: false,
     ...DEFAULT_READING,
   };
 }

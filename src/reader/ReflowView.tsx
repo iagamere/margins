@@ -239,7 +239,6 @@ const PageBlock = memo(function PageBlock(p: BlockProps) {
         })}
       {showOrig && (
         <>
-          {textless && <p className="rf-note muted">{t('pdf.reflowEmptyPage')}</p>}
           <OriginalPage doc={doc} num={num} adapt={p.adapt} />
         </>
       )}
