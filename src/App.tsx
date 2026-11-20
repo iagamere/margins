@@ -4,8 +4,7 @@ import { useT } from './lib/i18n';
 import { initBackButton, setSystemBars } from './lib/platform';
 import { runTopBackHandler } from './lib/backStack';
 import { requestPersistence } from './lib/db';
-import { THEME_COLORS } from './lib/readerCss';
-import { accentCss } from './lib/accents';
+import { accentCss, themeColors } from './lib/accents';
 import type { ThemeName } from './lib/types';
 import { BottomNav, SideNav } from './components/Nav';
 import { DropZone } from './components/DropZone';
@@ -78,8 +77,8 @@ export function App() {
   // System bars follow whatever surface is on screen.
   const barTheme: ThemeName = route.name === 'reader' ? (readerTheme === 'auto' ? resolved : readerTheme) : resolved;
   useEffect(() => {
-    void setSystemBars(barTheme === 'dark', THEME_COLORS[barTheme].bg);
-  }, [barTheme]);
+    void setSystemBars(barTheme === 'dark', themeColors(accent, barTheme).bg);
+  }, [barTheme, accent]);
 
   if (route.name === 'reader') {
     return (

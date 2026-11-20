@@ -2,7 +2,8 @@ import { AlignJustify, AlignLeft, BookOpen, ScrollText } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
 import { DEFAULT_READING } from '../lib/settings';
-import { THEME_COLORS, resolveFont } from '../lib/readerCss';
+import { resolveFont } from '../lib/readerCss';
+import { themeColors } from '../lib/accents';
 import type { ReadFont, ReaderTheme, ThemeName } from '../lib/types';
 
 export const MARK_COLORS = ['#b0503f', '#c27a3a', '#a08a2f', '#5f8a5a', '#4a7ba6', '#7b62a8', '#b05a82'];
@@ -25,7 +26,7 @@ export function TypographyControls({ showMode = true, format = 'epub', preview =
   const reset = useApp((st) => st.resetReading);
   const resolved = useApp((st) => st.resolvedTheme);
   const rtheme: ThemeName = s.readerTheme === 'auto' ? resolved : s.readerTheme;
-  const rc = THEME_COLORS[rtheme];
+  const rc = themeColors(s.accent, rtheme);
   const { stack } = resolveFont(s.font, s.font === 'naskh' || s.font === 'plexArabic');
   const themes: ReaderTheme[] = ['auto', 'light', 'sepia', 'dark'];
   const isDefault = (Object.keys(DEFAULT_READING) as Array<keyof typeof DEFAULT_READING>).every((k) => s[k] === DEFAULT_READING[k]);
@@ -141,10 +142,11 @@ export function TypographyControls({ showMode = true, format = 'epub', preview =
 function ThemePicker({ value, onChange, themes }: { value: ReaderTheme; onChange: (v: ReaderTheme) => void; themes: ReaderTheme[] }) {
   const { t } = useT();
   const resolved = useApp((st) => st.resolvedTheme);
+  const accent = useApp((st) => st.settings.accent);
   return (
     <div className="theme-row" role="group" aria-label={t('typo.theme')}>
       {themes.map((th) => {
-        const c = THEME_COLORS[th === 'auto' ? resolved : th];
+        const c = themeColors(accent, th === 'auto' ? resolved : th);
         return (
           <button key={th} className="theme-card" aria-pressed={value === th} onClick={() => onChange(th)} style={{ ['--c-bg' as string]: c.bg, ['--c-fg' as string]: c.fg }}>
             <b>Aa</b>

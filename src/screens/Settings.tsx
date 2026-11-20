@@ -8,15 +8,10 @@ import { requestPersistence, storageEstimate } from '../lib/db';
 import { formatBytes } from '../lib/utils';
 import { isNative } from '../lib/platform';
 import { CURRENT_BUILD } from '../lib/updater';
-import { ACCENTS, ACCENT_NAMES } from '../lib/accents';
+import { ACCENTS, ACCENT_NAMES, themeColors } from '../lib/accents';
 import type { AppTheme, Lang } from '../lib/types';
 
-const THEMES: Array<{ id: AppTheme; bg: string }> = [
-  { id: 'system', bg: 'linear-gradient(90deg,#F6F4EF 50%,#191B19 50%)' },
-  { id: 'light', bg: '#F6F4EF' },
-  { id: 'dark', bg: '#191B19' },
-  { id: 'sepia', bg: '#F0E5D0' },
-];
+const THEME_IDS: AppTheme[] = ['system', 'light', 'dark', 'sepia'];
 
 export function SettingsScreen() {
   const { t, n } = useT();
@@ -41,11 +36,16 @@ export function SettingsScreen() {
         <h2 className="eyebrow section-title">{t('settings.appearance')}</h2>
         <div className="group"><div className="setting">
           <div className="theme-swatches" role="group" aria-label={t('settings.appearance')}>
-            {THEMES.map((th) => (
+            {THEME_IDS.map((id) => {
+              const lightBg = themeColors(s.accent, 'light').bg;
+              const darkBg = themeColors(s.accent, 'dark').bg;
+              const th = { id, bg: id === 'system' ? `linear-gradient(90deg,${lightBg} 50%,${darkBg} 50%)` : themeColors(s.accent, id).bg };
+              return (
               <button key={th.id} className="swatch" aria-pressed={s.theme === th.id} onClick={() => set({ theme: th.id })}>
                 <i style={{ background: th.bg }} /><span>{t(`theme.${th.id}`)}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div></div>
         <h2 className="eyebrow section-title">{t('settings.accent')}</h2>

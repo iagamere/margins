@@ -1,12 +1,7 @@
-import { accentInk } from './accents';
+import { THEME_COLORS, themeColors } from './accents';
 import type { ReadFont, Settings, ThemeName } from './types';
 
-export const THEME_COLORS: Record<ThemeName, { bg: string; fg: string; fg2: string; accent: string }> = {
-  light: { bg: '#F6F4EF', fg: '#252824', fg2: '#77776F', accent: '#5F6954' },
-  dark: { bg: '#191B19', fg: '#EAE8E1', fg2: '#AAA99F', accent: '#A2AE91' },
-  sepia: { bg: '#F0E5D0', fg: '#43392F', fg2: '#776858', accent: '#6B5A3E' },
-};
-
+export { THEME_COLORS };
 export const HIGHLIGHT_COLORS = {
   sage: { fill: '#8FA17B', label: 'sage' },
   gold: { fill: '#D2A95F', label: 'gold' },
@@ -33,7 +28,7 @@ export function resolveFont(font: ReadFont, rtlBook: boolean): { stack: string |
 
 /** CSS injected into every EPUB chapter document. User preferences intentionally override publisher styling for readability. */
 export function buildEpubCss(s: Settings, theme: ThemeName, rtlBook: boolean): string {
-  const c = { ...THEME_COLORS[theme], accent: accentInk(s.accent, theme) ?? THEME_COLORS[theme].accent };
+  const c = themeColors(s.accent, theme);
   const { stack, arabicScale } = resolveFont(s.font, rtlBook);
   const size = Math.round(s.fontSize * arabicScale * 10) / 10;
   const align =
