@@ -3,8 +3,8 @@ import { hexToRgb, isHex, rgbToHsl } from './color';
 
 /** Stock (olive) colours — the same values as tokens.css. */
 export const THEME_COLORS: Record<ThemeName, { bg: string; fg: string; fg2: string; accent: string }> = {
-  light: { bg: '#F6F4EF', fg: '#252824', fg2: '#77776F', accent: '#5F6954' },
-  dark: { bg: '#191B19', fg: '#EAE8E1', fg2: '#AAA99F', accent: '#A2AE91' },
+  light: { bg: '#f5f7f9', fg: '#16181a', fg2: '#5f656b', accent: '#16181a' },
+  dark: { bg: '#0e0f10', fg: '#ecedee', fg2: '#a0a3a6', accent: '#dfe3e7' },
   sepia: { bg: '#F0E5D0', fg: '#43392F', fg2: '#776858', accent: '#6B5A3E' },
 };
 
@@ -12,9 +12,11 @@ export const THEME_COLORS: Record<ThemeName, { bg: string; fg: string; fg2: stri
  * Muted, earthy accents in the same family as the default olive.
  * `hue` tints the whole interface (backgrounds, surfaces, borders, text) — not only the buttons.
  * `ink` is the accessible shade for text/buttons on light + sepia, `dark` the shade for the dark theme.
- * Olive is the stock palette from tokens.css and needs no override.
+ * The stock palette in tokens.css is the black/white one (mono); olive has its own block (OLIVE_CSS).
  */
 export const ACCENTS: Record<AccentName, { swatch: string; hue: number; light: { accent: string; ink: string } | null; dark: string | null; neutral?: boolean }> = {
+  // Charcoal black / snow white: no hue. Charcoal ink on the light theme, snow ink on the dark one.
+  mono: { swatch: 'linear-gradient(135deg, #16181a 50%, #f5f7f9 50%)', hue: 0, neutral: true, light: { accent: '#26292c', ink: '#16181a' }, dark: '#dfe3e7' },
   olive: { swatch: '#78816c', hue: 86, light: null, dark: null },
   clay: { swatch: '#a27061', hue: 14, light: { accent: '#a27061', ink: '#865c4f' }, dark: '#c7a297' },
   ochre: { swatch: '#947d4f', hue: 40, light: { accent: '#947d4f', ink: '#76643f' }, dark: '#bea77a' },
@@ -85,6 +87,7 @@ function tint(hue: number, theme: 'light' | 'dark', neutral = false): Tint {
 export function themeColors(name: AccentName, theme: ThemeName): { bg: string; fg: string; fg2: string; accent: string } {
   const a = ACCENTS[name];
   const stock = THEME_COLORS[theme];
+  if (name === 'olive') return theme === 'light' ? { bg: '#F6F4EF', fg: '#252824', fg2: '#77776F', accent: '#5F6954' } : theme === 'dark' ? { bg: '#191B19', fg: '#EAE8E1', fg2: '#AAA99F', accent: '#A2AE91' } : stock;
   if (!a?.light || !a.dark) return stock;
   if (theme === 'sepia') return { ...stock, accent: a.light.ink };
   const t = tint(a.hue, theme, a.neutral);
@@ -95,7 +98,13 @@ export function themeColors(name: AccentName, theme: ThemeName): { bg: string; f
  * CSS that re-colours the whole interface for every theme. A single <style> is used (rather than :root overrides)
  * because the reader sets its own data-theme and PDF pages have their own backdrop.
  */
+const OLIVE_CSS =
+  "[data-theme='light']{--bg:#f6f4ef;--bg2:#edeae3;--surface:#ffffff;--fg:#252824;--fg2:#77776f;--border:#e4e0d7;--accent:#78816c;--accent-ink:#5f6954;--overlay:rgba(37,40,36,0.38);--shadow:0 1px 2px rgba(37,40,36,0.06),0 8px 24px rgba(37,40,36,0.08);}" +
+  "[data-theme='dark']{--bg:#191b19;--bg2:#222521;--surface:#292d28;--fg:#eae8e1;--fg2:#aaa99f;--border:#383d36;--accent:#a2ae91;--accent-ink:#a2ae91;--on-accent:#191b19;--overlay:rgba(0,0,0,0.55);--shadow:0 1px 2px rgba(0,0,0,0.3),0 8px 24px rgba(0,0,0,0.35);}" +
+  "[data-theme='sepia']{--accent:#8a7a55;--accent-ink:#6b5a3e;}";
+
 export function accentCss(name: AccentName): string {
+  if (name === 'olive') return OLIVE_CSS;
   const a = ACCENTS[name];
   if (!a?.light || !a.dark) return '';
   const L = tint(a.hue, 'light', a.neutral);

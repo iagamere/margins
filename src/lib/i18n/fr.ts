@@ -268,6 +268,7 @@ export const fr: Dict = {
   'err.restoreFailed': 'Le fichier de ce livre n’a pas pu être chargé depuis le stockage. Il a peut-être été effacé ; essayez de l’importer à nouveau.',
   'err.storageUnavailable': 'Le stockage local est indisponible : les livres ne peuvent pas être enregistrés pendant cette session.',
   'settings.accent': 'Couleur d’accent',
+  'accent.mono': 'Noir / Blanc',
   'accent.olive': 'Olive',
   'accent.clay': 'Argile',
   'accent.ochre': 'Ocre',

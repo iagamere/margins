@@ -266,6 +266,7 @@ export const en = {
   'err.restoreFailed': 'This book’s file could not be loaded from storage. It may have been cleared; try importing it again.',
   'err.storageUnavailable': 'Local storage is unavailable, so books cannot be saved in this session.',
   'settings.accent': 'Accent color',
+  'accent.mono': 'Black / White',
   'accent.olive': 'Olive',
   'accent.clay': 'Clay',
   'accent.ochre': 'Ochre',

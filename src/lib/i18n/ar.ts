@@ -268,6 +268,7 @@ export const ar: Dict = {
   'err.restoreFailed': 'تعذّر تحميل ملف هذا الكتاب من التخزين. ربما تم مسحه؛ جرّب استيراده مجددًا.',
   'err.storageUnavailable': 'التخزين المحلي غير متاح، لذا لا يمكن حفظ الكتب في هذه الجلسة.',
   'settings.accent': 'لون التطبيق',
+  'accent.mono': 'أسود / أبيض',
   'accent.olive': 'زيتوني',
   'accent.clay': 'طيني',
   'accent.ochre': 'عسلي',

@@ -2,7 +2,7 @@
   "appId": "app.margins.reader",
   "appName": "Margins",
   "webDir": "dist",
-  "backgroundColor": "#F6F4EF",
+  "backgroundColor": "#f5f7f9",
   "android": {
     "allowMixedContent": false,
     "webContentsDebuggingEnabled": false
