@@ -53,6 +53,7 @@ export const fr: Dict = {
   'import.added': '« {title} » ajouté à votre bibliothèque.',
   'import.addedMany': '{count} livres ajoutés à votre bibliothèque.',
   'import.duplicate': '« {title} » est déjà dans votre bibliothèque.',
+  'import.repaired': "« {title} » était déjà dans votre bibliothèque — son titre et sa couverture ont été corrigés.",
   'import.drop': 'Déposez vos livres pour les ajouter',
 
   'continue.emptyTitle': 'Rien à reprendre pour l’instant',

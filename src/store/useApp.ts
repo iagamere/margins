@@ -235,7 +235,11 @@ export const useApp = create<AppState>((set, get) => ({
         if (get().account && get().settings.cloudAutoUpload) void import('../lib/cloud').then((m) => m.queueUpload(book.id));
       } else if (res.status === 'duplicate') {
         last = res.book;
-        get().toast('import.duplicate', 'info', { title: res.book.title });
+        if (res.repaired) {
+          const fixed = res.book;
+          set({ books: get().books.map((b) => (b.id === fixed.id ? fixed : b)) });
+          get().toast('import.repaired', 'success', { title: fixed.title });
+        } else get().toast('import.duplicate', 'info', { title: res.book.title });
       } else {
         get().toast(`err.${res.code}`, 'error', { name: res.fileName });
       }

@@ -51,6 +51,7 @@ export const en = {
   'import.added': '“{title}” added to your library.',
   'import.addedMany': '{count} books added to your library.',
   'import.duplicate': '“{title}” is already in your library.',
+  'import.repaired': "“{title}” was already in your library — its title and cover were fixed.",
   'import.drop': 'Drop your books to add them',
 
   'continue.emptyTitle': 'Nothing to continue yet',

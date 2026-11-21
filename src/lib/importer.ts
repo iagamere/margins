@@ -1,5 +1,5 @@
 import ePub from 'epubjs';
-import { addBook, findBookByHash } from './db';
+import { addBook, findBookByHash, patchBook } from './db';
 import { TRIM_VERSION, trimCover } from './trim';
 import { openPdf, isPasswordError } from './pdf';
 import { AppError, type BookFormat, type BookRecord, type ErrorCode } from './types';
@@ -7,7 +7,7 @@ import { baseName, isRtlLang, uid, withTimeout, log } from './utils';
 
 export type ImportResult =
   | { status: 'added'; book: BookRecord }
-  | { status: 'duplicate'; book: BookRecord }
+  | { status: 'duplicate'; book: BookRecord; repaired?: boolean }
   | { status: 'error'; code: ErrorCode; fileName: string };
 
 const COVER_WIDTH = 420;
@@ -55,6 +55,112 @@ async function downscaleToJpeg(source: Blob): Promise<Blob | undefined> {
   }
 }
 
+
+/* ---------- clean-up of junk metadata ("Unknown", an e-mail as author…) ---------- */
+const BAD_TITLE = /^(unknown|untitled|no title|notitle|none|null|undefined|n\/a|title|document|book|new book|ebook|[-_. ]*)$/i;
+const BAD_AUTHOR = /^(unknown|anonymous|none|null|undefined|n\/a|author|calibre|[-_. ]*)$/i;
+const EMAIL = /^\S+@\S+\.\S+$/;
+
+export function cleanTitle(t: string | undefined | null): string | undefined {
+  const v = (t ?? '').replace(/\s+/g, ' ').trim();
+  return !v || BAD_TITLE.test(v) || EMAIL.test(v) ? undefined : v;
+}
+export function cleanAuthor(a: string | undefined | null): string | undefined {
+  const v = (a ?? '').replace(/\s+/g, ' ').trim();
+  return !v || BAD_AUTHOR.test(v) || EMAIL.test(v) ? undefined : v;
+}
+const needsRepair = (b: BookRecord) => !b.cover || !cleanTitle(b.title) || (!!b.author && !cleanAuthor(b.author));
+
+/* ---------- EPUB cover: many files have no <meta name="cover"> at all, so look in every usual place ---------- */
+const IMG_MIME: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
+
+async function epubFallbackCover(book: any): Promise<Blob | undefined> {
+  const zip = book?.archive?.zip;
+  if (!zip) return undefined;
+  const text = async (p: string): Promise<string> => (await zip.file(p)?.async('string')) ?? '';
+  const join = (base: string, href: string) => {
+    let h = href.split('#')[0].split('?')[0];
+    try { h = decodeURIComponent(h); } catch { /* keep as is */ }
+    const parts = (h.startsWith('/') ? h.slice(1) : (base ? base + '/' : '') + h).split('/');
+    const out: string[] = [];
+    for (const seg of parts) {
+      if (seg === '..') out.pop();
+      else if (seg && seg !== '.') out.push(seg);
+    }
+    return out.join('/');
+  };
+  const dirOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+  const imgBlob = async (path: string): Promise<Blob | undefined> => {
+    const f = zip.file(path);
+    if (!f) return undefined;
+    const ext = (path.split('.').pop() ?? '').toLowerCase();
+    const mime = IMG_MIME[ext];
+    if (!mime) return undefined; // svg / unknown: the canvas cannot draw it reliably
+    const b: Blob = await f.async('blob');
+    return b.size > 1500 ? new Blob([b], { type: mime }) : undefined;
+  };
+  /** first picture shown by an (x)html page, e.g. the cover page */
+  const pageImage = async (pagePath: string): Promise<Blob | undefined> => {
+    const html = await text(pagePath);
+    if (!html) return undefined;
+    const m = /<img[^>]+src\s*=\s*["']([^"']+)["']/i.exec(html) ?? /<image[^>]+href\s*=\s*["']([^"']+)["']/i.exec(html);
+    return m ? imgBlob(join(dirOf(pagePath), m[1])) : undefined;
+  };
+
+  try {
+    const container = await text('META-INF/container.xml');
+    const opfPath = /full-path\s*=\s*["']([^"']+)["']/i.exec(container)?.[1];
+    if (!opfPath) return undefined;
+    const base = dirOf(opfPath);
+    const doc = new DOMParser().parseFromString(await text(opfPath), 'application/xml');
+    const items = Array.from(doc.getElementsByTagName('item')).map((e) => ({
+      id: e.getAttribute('id') ?? '',
+      href: e.getAttribute('href') ?? '',
+      type: e.getAttribute('media-type') ?? '',
+      props: e.getAttribute('properties') ?? '',
+    }));
+    const images = items.filter((i) => i.type.startsWith('image/') && i.href);
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const tryItem = async (i?: { href: string; type: string }) => {
+      if (!i?.href) return undefined;
+      const path = join(base, i.href);
+      return i.type.startsWith('image/') ? imgBlob(path) : pageImage(path);
+    };
+
+    // 1) EPUB 3 cover-image property
+    let r = await tryItem(items.find((i) => /(^|\s)cover-image(\s|$)/.test(i.props)));
+    if (r) return r;
+    // 2) EPUB 2 <meta name="cover" content="id">
+    const meta = Array.from(doc.getElementsByTagName('meta')).find((m) => (m.getAttribute('name') ?? '').toLowerCase() === 'cover');
+    r = await tryItem(byId.get(meta?.getAttribute('content') ?? ''));
+    if (r) return r;
+    // 3) <guide><reference type="cover">
+    const ref = Array.from(doc.getElementsByTagName('reference')).find((x) => (x.getAttribute('type') ?? '').toLowerCase() === 'cover');
+    if (ref?.getAttribute('href')) {
+      const path = join(base, ref.getAttribute('href')!);
+      r = /\.(jpe?g|png|gif|webp)$/i.test(path) ? await imgBlob(path) : await pageImage(path);
+      if (r) return r;
+    }
+    // 4) an image called "cover…"
+    r = await tryItem(images.find((i) => /cover|couv|غلاف/i.test(i.id + ' ' + i.href)));
+    if (r) return r;
+    // 5) the picture on the first page of the book
+    const spineRef = doc.getElementsByTagName('itemref')[0]?.getAttribute('idref');
+    r = await tryItem(byId.get(spineRef ?? ''));
+    if (r) return r;
+    // 6) the biggest picture of the book
+    let best: Blob | undefined;
+    for (const i of images.slice(0, 40)) {
+      const b = await imgBlob(join(base, i.href));
+      if (b && (!best || b.size > best.size)) best = b;
+    }
+    return best && best.size > 20_000 ? best : undefined;
+  } catch (e) {
+    log('fallback cover failed', e);
+    return undefined;
+  }
+}
+
 async function readEpub(buf: ArrayBuffer) {
   const book: any = ePub(buf, { openAs: 'binary' } as any);
   try {
@@ -69,6 +175,10 @@ async function readEpub(buf: ArrayBuffer) {
       }
     } catch (e) {
       log('cover extraction failed', e);
+    }
+    if (!cover) {
+      const raw = await epubFallbackCover(book);
+      if (raw) cover = await downscaleToJpeg(raw);
     }
     const language: string | undefined = meta.language ? String(meta.language) : undefined;
     const dir = String(meta.direction ?? '').toLowerCase();
@@ -137,7 +247,25 @@ export async function importFile(file: File): Promise<ImportResult> {
     const hash = await sha256(buf, file);
 
     const existing = await findBookByHash(hash);
-    if (existing) return { status: 'duplicate', book: existing };
+    if (existing) {
+      // an earlier import may have kept a junk title ("Unknown") or no cover: read the file again and fix the record
+      if (format === 'epub' && needsRepair(existing)) {
+        try {
+          const m = await readEpub(buf.slice(0));
+          const patch: Partial<BookRecord> = {};
+          if (!cleanTitle(existing.title)) patch.title = cleanTitle(m.title) || baseName(fileName) || existing.title;
+          if (existing.author && !cleanAuthor(existing.author)) patch.author = cleanAuthor(m.author);
+          if (!existing.cover && m.cover) Object.assign(patch, { cover: await trimCover(m.cover), coverTrimmed: true, coverTrimV: TRIM_VERSION });
+          if (Object.keys(patch).length) {
+            const fixed = await patchBook(existing.id, patch);
+            if (fixed) return { status: 'duplicate', book: fixed, repaired: true };
+          }
+        } catch (e) {
+          log('repair failed', e);
+        }
+      }
+      return { status: 'duplicate', book: existing };
+    }
 
     // Build the stored copy BEFORE parsing: PDF.js transfers (detaches) the buffer it is given,
     // which would otherwise leave us saving an empty file.
@@ -158,8 +286,8 @@ export async function importFile(file: File): Promise<ImportResult> {
       id: uid(),
       hash,
       format,
-      title: meta.title || baseName(fileName) || fileName,
-      author: meta.author,
+      title: cleanTitle(meta.title) || baseName(fileName) || fileName,
+      author: cleanAuthor(meta.author),
       fileName,
       size: file.size,
       addedAt: Date.now(),

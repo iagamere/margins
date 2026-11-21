@@ -53,6 +53,7 @@ export const ar: Dict = {
   'import.added': 'تمت إضافة «{title}» إلى مكتبتك.',
   'import.addedMany': 'تمت إضافة {count} كتب إلى مكتبتك.',
   'import.duplicate': '«{title}» موجود بالفعل في مكتبتك.',
+  'import.repaired': "كان «{title}» موجوداً في مكتبتك — تم إصلاح اسمه وغلافه.",
   'import.drop': 'أفلت كتبك هنا لإضافتها',
 
   'continue.emptyTitle': 'لا شيء لمتابعته بعد',
