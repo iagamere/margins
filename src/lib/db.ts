@@ -98,6 +98,11 @@ export async function putFile(id: string, file: Blob): Promise<void> {
   }
 }
 
+/** Removes only the file of a book (its record, notes and position stay). */
+export async function deleteBookFile(id: string): Promise<void> {
+  await (await getDb()).delete('files', id);
+}
+
 export async function getFile(id: string): Promise<Blob | undefined> {
   return (await getDb()).get('files', id);
 }

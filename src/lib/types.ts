@@ -49,6 +49,8 @@ export interface BookRecord {
   coverCloudId?: string;
   /** the book is in Drive only: no file on this device yet (tap the corner icon to download) */
   remoteOnly?: boolean;
+  /** the file on this device is a temporary copy for "read online": deleted when the reader closes */
+  tempRead?: boolean;
 }
 
 export type ShelfRatio = '2:3' | '1:1';

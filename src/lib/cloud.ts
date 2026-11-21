@@ -1,5 +1,5 @@
 import { useApp } from '../store/useApp';
-import { getFile, putBookRecord, putFile } from './db';
+import { deleteBookFile, getFile, putBookRecord, putFile } from './db';
 import { deleteFile, downloadFile, listAppFiles, uploadFile } from './drive';
 import { TRIM_VERSION } from './trim';
 import { baseName, uid } from './utils';
@@ -127,4 +127,47 @@ export async function syncFromDrive(): Promise<{ inDrive: number; added: number 
     added++;
   }
   return { inDrive: remote.length, added };
+}
+
+/**
+ * "Read online": the book comes down as a temporary copy, opens in the reader and is deleted from the
+ * device when the reader closes (or at the next app start). Returns true when the reader can open it.
+ */
+export async function readOnline(id: string): Promise<boolean> {
+  const st = useApp.getState();
+  const book = st.books.find((b) => b.id === id);
+  if (!book?.cloudId || st.transfers[id]) return false;
+  st.setTransfer(id, { kind: 'down', pct: 0 });
+  try {
+    const blob = await downloadFile(book.cloudId, book.size, (f) => useApp.getState().setTransfer(id, { kind: 'down', pct: f }));
+    await putFile(id, blob);
+    useApp.getState().updateBook(id, { tempRead: true });
+    return true;
+  } catch (e) {
+    const q = (e as { code?: string })?.code === 'quota';
+    useApp.getState().toast(q ? 'err.quota' : 'cloud.downloadFailed', 'error', { name: book.title, msg: msg(e) });
+    return false;
+  } finally {
+    useApp.getState().setTransfer(id, null);
+  }
+}
+
+/** Deletes the temporary copy of a "read online" book; the record, position and notes stay. */
+export async function discardTempRead(id: string): Promise<void> {
+  const book = useApp.getState().books.find((b) => b.id === id);
+  if (!book?.tempRead || !book.remoteOnly) return;
+  // still open in the reader (e.g. a quick re-mount): keep the file
+  const r = useApp.getState().route;
+  if (r.name === 'reader' && r.id === id) return;
+  try {
+    await deleteBookFile(id);
+    useApp.getState().updateBook(id, { tempRead: false });
+  } catch {
+    /* it is retried at the next app start */
+  }
+}
+
+/** App start: temporary copies left behind by a closed app are removed. */
+export function discardAllTempReads() {
+  useApp.getState().books.filter((b) => b.tempRead && b.remoteOnly).forEach((b) => void discardTempRead(b.id));
 }
