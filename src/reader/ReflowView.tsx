@@ -54,7 +54,7 @@ function Highlighted({ text, q }: { text: string; q: string }) {
  * The DOM range of `needle` inside a rendered page (whitespace-insensitive, as the stored bookmark text is).
  * When the passage occurs more than once, the occurrence nearest to the saved vertical position wins.
  */
-function passageRange(root: HTMLElement, needle: string, ratio: number): Range | null {
+function passageRange(root: HTMLElement, needle: string, ratio: number, inner?: string): Range | null {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: (n) => (n.parentElement?.closest('.rf-marker, button') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
   });
@@ -90,15 +90,26 @@ function passageRange(root: HTMLElement, needle: string, ratio: number): Range |
     for (let i = norm.indexOf(q); i !== -1; i = norm.indexOf(q, i + 1)) hits.push(i);
     return hits;
   };
-  let len = needle.length;
+  const len = needle.length;
   let hits = find(needle);
   if (!hits.length && needle.length > 30) {
     hits = find(needle.slice(0, 30)); // the text differs a little: tint from the start of the passage
   }
   if (!hits.length) return null;
   const start = hits.reduce((best, i) => (Math.abs(i / Math.max(1, norm.length) - ratio) < Math.abs(best / Math.max(1, norm.length) - ratio) ? i : best), hits[0]);
-  const end = Math.min(norm.length - 1, start + len - 1);
-  const a = map[start];
+  let from = start;
+  let end = Math.min(norm.length - 1, start + len - 1);
+  if (inner) {
+    // narrow the passage down to the searched words
+    const low = norm.toLowerCase();
+    const q = inner.toLowerCase();
+    const j = low.length === norm.length ? low.indexOf(q, start) : -1;
+    if (j !== -1 && j <= end) {
+      from = j;
+      end = j + q.length - 1;
+    }
+  }
+  const a = map[from];
   const b = map[end];
   if (!a || !b) return null;
   const r = document.createRange();
@@ -494,12 +505,19 @@ export function ReflowView(props: ReflowViewProps) {
   const focusPassage = useCallback(
     (page: number, off: number, focus: PassageFocus) => {
       const token = ++focusToken.current;
+      try {
+        (CSS as any).highlights?.delete('rf-hit');
+      } catch {
+        /* ignore */
+      }
       scrollToPage(page, off, false);
       let tries = 0;
       const find = () => {
         const sc = scrollerRef.current;
         const sec = sc?.querySelector<HTMLElement>(`section[data-page="${page}"]`);
-        return sc && sec ? { sc, range: passageRange(sec, focus.text ?? '', off) } : null;
+        if (!sc || !sec) return null;
+        const range = passageRange(sec, focus.text ?? '', off, focus.inner) ?? (focus.inner ? passageRange(sec, focus.inner, 0) : null);
+        return { sc, range };
       };
       const attempt = () => {
         if (token !== focusToken.current) return;
@@ -518,7 +536,17 @@ export function ReflowView(props: ReflowViewProps) {
         setTimeout(() => {
           if (token !== focusToken.current) return;
           const g = find();
-          if (g?.range) flashRange(g.sc, g.range, focus.color);
+          if (!g?.range) return;
+          flashRange(g.sc, g.range, focus.color);
+          if (focus.hold) {
+            // search hit: a soft highlight stays a few seconds after the glow
+            const reg = (CSS as any).highlights;
+            const HL = (window as any).Highlight;
+            if (reg && HL) {
+              reg.set('rf-hit', new HL(g.range));
+              setTimeout(() => token === focusToken.current && reg.delete('rf-hit'), focus.hold);
+            }
+          }
         }, 800);
       };
       attempt();
@@ -643,10 +671,17 @@ export function ReflowView(props: ReflowViewProps) {
       setFit: () => undefined,
       goToHit: (hit: SearchHit) => {
         const m = /^p:(\d+):/.exec(hit.location);
-        if (m) {
-          setQuery(hit.label ?? '');
-          scrollToPage(clamp(parseInt(m[1], 10), 1, total), 0, true);
+        if (!m) return;
+        const page = clamp(parseInt(m[1], 10), 1, total);
+        const q = (hit.label ?? '').trim();
+        setQuery(q);
+        if (!q) {
+          scrollToPage(page, 0, true);
+          return;
         }
+        // centre the exact occurrence, then glow + a soft highlight that fades after a few seconds
+        const around = hit.excerpt.replace(/^…|…$/g, '').replace(/\s+/g, ' ').trim();
+        focusPassage(page, 0, { text: around, inner: q, color: '#d2a95f', hold: 3500 });
       },
       search: async (q, onHit, cancel) => {
         setQuery('');

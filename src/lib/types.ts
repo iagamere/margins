@@ -186,6 +186,10 @@ export interface PassageFocus {
   text?: string;
   cfiRange?: string;
   color: string;
+  /** search hits: the exact words to mark inside `text` */
+  inner?: string;
+  /** ms the soft highlight stays after the glow (search hits) */
+  hold?: number;
 }
 
 export interface ReaderApi {

@@ -86,6 +86,22 @@ export function EpubView(props: EpubViewProps) {
     let spineLen = 1;
     let tocFlat: Array<{ item: TocItem; index: number }> = [];
     let searchMark: string | null = null;
+    /** scrolled reading: bring the passage to the middle of the screen (paginated pages show it as it is) */
+    const centerCfi = (r: any, cfi: string) => {
+      try {
+        if (P.current.settings.readingMode !== 'scroll') return;
+        const range = r.getRange?.(cfi);
+        const frame = range?.startContainer?.ownerDocument?.defaultView?.frameElement as HTMLElement | null;
+        const box = r.manager?.container as HTMLElement | undefined;
+        if (!range || !frame || !box) return;
+        const q = range.getBoundingClientRect();
+        const f = frame.getBoundingClientRect();
+        const b = box.getBoundingClientRect();
+        box.scrollBy({ top: f.top + q.top + q.height / 2 - (b.top + b.height / 2), behavior: 'smooth' });
+      } catch {
+        /* the passage simply stays where epub.js put it */
+      }
+    };
     const CFI = new (ePub as any).CFI();
 
     const chapterAt = (spineIndex: number): string | undefined => {
@@ -321,22 +337,7 @@ export function EpubView(props: EpubViewProps) {
           .then(() => {
             if (!focus?.cfiRange) return;
             const cfi = focus.cfiRange;
-            // scrolled reading: bring the passage to the middle of the screen (paginated pages show it as it is)
-            setTimeout(() => {
-              try {
-                if (P.current.settings.readingMode !== 'scroll') return;
-                const range = r.getRange?.(cfi);
-                const frame = range?.startContainer?.ownerDocument?.defaultView?.frameElement as HTMLElement | null;
-                const box = r.manager?.container as HTMLElement | undefined;
-                if (!range || !frame || !box) return;
-                const q = range.getBoundingClientRect();
-                const f = frame.getBoundingClientRect();
-                const b = box.getBoundingClientRect();
-                box.scrollBy({ top: f.top + q.top + q.height / 2 - (b.top + b.height / 2), behavior: 'smooth' });
-              } catch {
-                /* the passage simply stays where epub.js put it */
-              }
-            }, 250);
+            setTimeout(() => centerCfi(r, cfi), 250);
             // two soft pulses over the passage
             const on = () => {
               try {
@@ -374,25 +375,48 @@ export function EpubView(props: EpubViewProps) {
       },
       goToHit: (hit) => {
         if (!rendition) return;
-        void rendition.display(hit.location).catch(() => undefined);
+        const r = rendition;
+        const cfi = hit.location;
         try {
-          if (searchMark) rendition.annotations.remove(searchMark, 'highlight');
-          searchMark = hit.location;
-          rendition.annotations.highlight(hit.location, {}, undefined, 'margins-hit', { fill: '#d2a95f', 'fill-opacity': '0.45', 'mix-blend-mode': 'normal' });
-          const mark = searchMark;
-          setTimeout(() => {
-            if (searchMark === mark && !disposed) {
+          if (searchMark) r.annotations.remove(searchMark, 'highlight');
+        } catch {
+          /* ignore */
+        }
+        searchMark = cfi;
+        const alive = () => searchMark === cfi && !disposed;
+        const paint = (op: string) => {
+          try {
+            r.annotations.remove(cfi, 'highlight');
+          } catch {
+            /* ignore */
+          }
+          try {
+            r.annotations.highlight(cfi, {}, undefined, 'margins-hit', { fill: '#d2a95f', 'fill-opacity': op, 'mix-blend-mode': 'normal' });
+          } catch {
+            /* highlight is a nicety */
+          }
+        };
+        // centre it, pulse twice, keep a soft highlight for a few seconds, then let it go
+        void r
+          .display(cfi)
+          .then(() => {
+            if (!alive()) return;
+            setTimeout(() => alive() && centerCfi(r, cfi), 250);
+            paint('0.6');
+            setTimeout(() => alive() && paint('0.12'), 500);
+            setTimeout(() => alive() && paint('0.62'), 800);
+            setTimeout(() => alive() && paint('0.4'), 1400);
+            setTimeout(() => {
+              if (!alive()) return;
               try {
-                rendition.annotations.remove(mark, 'highlight');
+                r.annotations.remove(cfi, 'highlight');
               } catch {
                 /* ignore */
               }
               searchMark = null;
-            }
-          }, 5000);
-        } catch {
-          /* highlight is a nicety */
-        }
+            }, 4800);
+          })
+          .catch(() => undefined);
       },
       async search(query, onHit, cancel) {
         const q = query.trim();
