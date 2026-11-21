@@ -63,6 +63,16 @@ jobs:
           mkdir -p out
           cp android/app/build/outputs/apk/debug/app-debug.apk out/Margins.apk
 
+      # The fingerprint Google compares with the Android OAuth client (Google sign-in fails when they differ).
+      - name: Show APK signing fingerprint
+        continue-on-error: true
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs out/Margins.apk | grep -E "SHA-1|SHA-256" | tee fp.txt
+          echo "### APK signing fingerprint" >> "$GITHUB_STEP_SUMMARY"
+          sed 's/^/    /' fp.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "Package: $(grep -o 'appId[^,]*' capacitor.config.json)" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         with:
           name: Margins-apk
