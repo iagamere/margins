@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { useApp } from '../store/useApp';
 import { getFile, kvGet, kvSet } from './db';
-import { createFolder, deleteFile, fetchPublicBlob, fetchPublicJson, makePublic, uploadFile } from './drive';
+import { createFolder, deleteFile, fetchPublicBlob, fetchPublicJson, listSharedFiles, makePublic, uploadFile } from './drive';
 
 /**
  * Shared library ("stamp"). Drive's hidden app folder cannot be shared, so a shared library is a normal Drive
@@ -22,14 +22,25 @@ export interface ShareEntry {
   r?: boolean;
   p?: number;
   fn?: string;
+  /** shelf id (see ShareManifest.shelves) */
+  sh?: string;
   /** Drive id of the book file / of its cover */
   file: string;
   cover?: string;
+}
+export interface ShareShelf {
+  id: string;
+  n: string;
+  c?: string;
+  /** Drive id of the shelf picture */
+  i?: string;
+  ratio?: '2:3' | '1:1';
 }
 export interface ShareManifest {
   v: 1;
   name: string;
   updated: number;
+  shelves?: ShareShelf[];
   books: ShareEntry[];
 }
 export interface ShareState {
@@ -37,6 +48,8 @@ export interface ShareState {
   folderId: string;
   manifestId: string;
   files: Record<string, { file: string; cover?: string }>;
+  /** shelf pictures already in Drive: shelf id -> picture signature + file id */
+  shelfFiles?: Record<string, { sig: string; file: string }>;
   updated: number;
 }
 export interface FriendRec {
@@ -82,7 +95,7 @@ export async function publishLibrary(): Promise<void> {
   const email = app.account?.email ?? '';
   if (!app.account || useShare.getState().busy) return;
   const cur = useShare.getState().mine;
-  const st: ShareState = cur && cur.email === email ? { ...cur, files: { ...cur.files } } : { email, folderId: '', manifestId: '', files: {}, updated: 0 };
+  const st: ShareState = cur && cur.email === email ? { ...cur, files: { ...cur.files }, shelfFiles: { ...(cur.shelfFiles ?? {}) } } : { email, folderId: '', manifestId: '', files: {}, shelfFiles: {}, updated: 0 };
   useShare.setState({ busy: { done: 0, total: 0 } });
   try {
     if (!st.folderId) st.folderId = await createFolder('Margins — shared library');
@@ -114,8 +127,36 @@ export async function publishLibrary(): Promise<void> {
     }
     const entries: ShareEntry[] = books
       .filter((b) => st.files[b.hash])
-      .map((b) => ({ h: b.hash, t: b.title, a: b.author, f: b.format, s: b.size, l: b.language, r: b.rtl, p: b.pages, fn: b.fileName, file: st.files[b.hash].file, cover: st.files[b.hash].cover }));
-    const manifest: ShareManifest = { v: 1, name: app.account.name || app.account.email, updated: Date.now(), books: entries };
+      .map((b) => ({ h: b.hash, t: b.title, a: b.author, f: b.format, s: b.size, l: b.language, r: b.rtl, p: b.pages, fn: b.fileName, sh: b.shelfId, file: st.files[b.hash].file, cover: st.files[b.hash].cover }));
+    // shelves that hold at least one shared book (name, colour, picture)
+    const used = new Set(entries.map((e) => e.sh).filter(Boolean) as string[]);
+    const shelves: ShareShelf[] = [];
+    for (const sh of app.shelves.filter((x) => used.has(x.id))) {
+      const rec: ShareShelf = { id: sh.id, n: sh.name, c: sh.color, ratio: sh.ratio };
+      if (sh.image) {
+        const sig = `${sh.image.size}`;
+        const have = st.shelfFiles![sh.id];
+        if (have && have.sig === sig) rec.i = have.file;
+        else {
+          try {
+            if (have) await deleteFile(have.file).catch(() => undefined);
+            const file = await uploadFile(`shelf-${sh.id}.jpg`, sh.image, sh.image.type || 'image/jpeg', { k: 'sshelf', h: sh.id, g: sig }, '', undefined, undefined, st.folderId);
+            await makePublic(file);
+            st.shelfFiles![sh.id] = { sig, file };
+            rec.i = file;
+          } catch {
+            /* the shelf is shown without its picture */
+          }
+        }
+      }
+      shelves.push(rec);
+    }
+    for (const [id, e] of Object.entries(st.shelfFiles!)) {
+      if (used.has(id)) continue;
+      await deleteFile(e.file).catch(() => undefined);
+      delete st.shelfFiles![id];
+    }
+    const manifest: ShareManifest = { v: 1, name: app.account.name || app.account.email, updated: Date.now(), shelves, books: entries };
     const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
     if (st.manifestId) {
       await uploadFile('manifest.json', blob, 'application/json', { k: 'smanifest' }, '', undefined, st.manifestId);
@@ -155,16 +196,71 @@ export async function stopSharing(): Promise<void> {
   }
 }
 
+/**
+ * The stamp must not change by itself: if this device lost its record (reinstall, cleared data, new phone),
+ * the shared files are found again in Drive by their tags and the same stamp is used again.
+ */
+let restoring = false;
+export async function restoreShare(): Promise<boolean> {
+  const app = useApp.getState();
+  const email = app.account?.email;
+  if (!email || !app.account?.share || restoring) return false;
+  const cur = useShare.getState().mine;
+  if (cur && cur.email === email) return true;
+  restoring = true;
+  try {
+    const files = await listSharedFiles();
+    const manifest = files.find((f) => f.props.k === 'smanifest');
+    if (!manifest) return false;
+    const st: ShareState = { email, folderId: manifest.parent ?? '', manifestId: manifest.id, files: {}, shelfFiles: {}, updated: 0 };
+    for (const f of files) {
+      const h = f.props.h;
+      if (!h) continue;
+      if (f.props.k === 'sbook') st.files[h] = { ...(st.files[h] ?? {}), file: f.id };
+      else if (f.props.k === 'scover') st.files[h] = { ...(st.files[h] ?? { file: '' }), cover: f.id };
+      else if (f.props.k === 'sshelf') st.shelfFiles![h] = { sig: f.props.g ?? '', file: f.id };
+    }
+    for (const h of Object.keys(st.files)) if (!st.files[h].file) delete st.files[h];
+    await persistMine(st);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    restoring = false;
+  }
+}
+
+/** Deliberate change of stamp: the old one stops working, a new one is made with the same books. */
+export async function changeStamp(): Promise<void> {
+  await stopSharing();
+  if (!useShare.getState().mine) await publishLibrary();
+}
+
 /* ---------- friends' libraries ---------- */
 
 const manifests = new Map<string, ShareManifest>();
 
+/** The last copy of a friend's library kept on this device (opens offline). */
+export async function cachedManifest(id: string): Promise<ShareManifest | null> {
+  const hit = manifests.get(id);
+  if (hit) return hit;
+  try {
+    const m = (await kvGet<ShareManifest>('fm:' + id)) ?? null;
+    if (m) manifests.set(id, m);
+    return m;
+  } catch {
+    return null;
+  }
+}
+
+/** Reads the library online and keeps a copy; throws when it cannot be reached (callers fall back to cachedManifest). */
 export async function loadManifest(id: string, fresh = false): Promise<ShareManifest> {
   const hit = manifests.get(id);
   if (hit && !fresh) return hit;
   const m = await fetchPublicJson<ShareManifest>(id);
   if (!m || m.v !== 1 || !Array.isArray(m.books)) throw new Error('Not a Margins library');
   manifests.set(id, m);
+  void kvSet('fm:' + id, m).catch(() => undefined);
   return m;
 }
 
@@ -193,30 +289,41 @@ export async function removeFriend(id: string): Promise<void> {
   useShare.setState({ friends: list });
   await kvSet('friends', list);
   manifests.delete(id);
+  void kvSet('fm:' + id, undefined).catch(() => undefined);
 }
 
 /* ---------- covers (a few at a time) ---------- */
 
 let active = 0;
 const waiting: Array<() => void> = [];
-const covers = new Map<string, Promise<string | null>>();
+const blobs = new Map<string, Promise<Blob | null>>();
 
-export function friendCover(id: string): Promise<string | null> {
-  let p = covers.get(id);
+/** A friend's cover / shelf picture: kept on this device after the first time, so it shows offline too. */
+export function friendBlob(id: string): Promise<Blob | null> {
+  let p = blobs.get(id);
   if (!p) {
     p = (async () => {
+      try {
+        const hit = await kvGet<Blob>('fc:' + id);
+        if (hit) return hit;
+      } catch {
+        /* fall through to the network */
+      }
       if (active >= 4) await new Promise<void>((r) => waiting.push(r));
       active++;
       try {
-        return URL.createObjectURL(await fetchPublicBlob(id));
+        const b = await fetchPublicBlob(id);
+        void kvSet('fc:' + id, b).catch(() => undefined);
+        return b;
       } catch {
+        blobs.delete(id); // try again next time
         return null;
       } finally {
         active--;
         waiting.shift()?.();
       }
     })();
-    covers.set(id, p);
+    blobs.set(id, p);
   }
   return p;
 }

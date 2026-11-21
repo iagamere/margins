@@ -63,3 +63,5 @@ Account → *Share my library* creates a **stamp** (`MRG-…`). A friend pastes 
 - Accounts signed in before this feature must sign in again (the screen asks).
 - In the Google Cloud console, add the `drive.file` scope to the OAuth consent screen.
 - Optional but recommended: create an **API key** (Drive API enabled, restricted to the Drive API) and add it as the GitHub secret `GOOGLE_API_KEY` (or `VITE_GOOGLE_API_KEY` locally). With it, downloads from a friend show real progress. Without it the Android app falls back to the native HTTP client (no progress bar, whole file buffered in memory).
+
+The stamp is stable: the shared files are tagged in Drive, so after a reinstall the same stamp is found again. It only changes through *Change stamp*. Friends' libraries (list, shelves, covers) are cached on the device and open offline.

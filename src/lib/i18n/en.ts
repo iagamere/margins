@@ -407,9 +407,16 @@ export const en = {
   'friends.emptyLib': "This library has no books yet.",
   'friends.owned': "On your device",
   'friends.downloadAll': "Download all ({count})",
-  'friends.downloadSel': "Download",
   'friends.started': "Downloading {count} books together…",
   'friends.partial': "{count} downloaded, {failed} failed.",
+  'share.fixed': "This stamp never changes by itself. It stays the same, even if you reinstall the app, until you change it on purpose.",
+  'share.change': "Change stamp",
+  'share.changeTitle': "Change the stamp?",
+  'share.changeBody': "A new stamp is created. The old one stops working at once, and friends will need the new one.",
+  'friends.updated': "updated {date}",
+  'friends.offline': "No connection. Showing the last copy saved on this device.",
+  'friends.working': "Downloading… ({count})",
+  'friends.downloadSel': "Download {count}",
 } as const;
 
 export type Dict = { [K in keyof typeof en]: string

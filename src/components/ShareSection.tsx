@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ChevronRight, ClipboardPaste, Copy, RefreshCw, Share2, Stamp, Trash2, X } from 'lucide-react';
+import { ChevronRight, ClipboardPaste, Copy, KeyRound, RefreshCw, Share2, Stamp, Trash2, X } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
-import { addFriend, loadShare, publishLibrary, removeFriend, stampOf, stopSharing, useShare } from '../lib/share';
+import { addFriend, changeStamp, loadShare, publishLibrary, removeFriend, restoreShare, stampOf, stopSharing, useShare } from '../lib/share';
 import { ConfirmDialog } from './ConfirmDialog';
 
 /** "My stamp" (publish my library) and "Friends' libraries" (enter a stamp, browse, download). */
@@ -15,11 +15,16 @@ export function ShareSection({ onReauth, reauthBusy }: { onReauth: () => void; r
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [confirmStop, setConfirmStop] = useState(false);
+  const [confirm, setConfirm] = useState<null | 'stop' | 'change'>(null);
+  const loaded = useShare((s) => s.loaded);
 
   useEffect(() => {
     void loadShare();
   }, []);
+  // same stamp as before even after a reinstall: the shared files are found again in Drive
+  useEffect(() => {
+    if (loaded && account?.share) void restoreShare();
+  }, [loaded, account?.email, account?.share]);
 
   const mine = stored && account && stored.email === account.email ? stored : null;
 
@@ -102,8 +107,13 @@ export function ShareSection({ onReauth, reauthBusy }: { onReauth: () => void; r
                 <p className="hint" style={{ margin: 0, lineHeight: 1.6 }}>
                   {t('share.count', { count: n(Object.keys(mine.files).length) })} · {t('share.note')}
                 </p>
+                <p className="hint" style={{ margin: 0, lineHeight: 1.6 }}>{t('share.fixed')}</p>
                 <div className="acc-actions">
-                  <button className="btn btn-sm btn-ghost btn-danger" disabled={!!busy} onClick={() => setConfirmStop(true)}>
+                  <button className="btn btn-sm btn-ghost" disabled={!!busy} onClick={() => setConfirm('change')}>
+                    <KeyRound size={16} aria-hidden="true" />
+                    {t('share.change')}
+                  </button>
+                  <button className="btn btn-sm btn-ghost btn-danger" disabled={!!busy} onClick={() => setConfirm('stop')}>
                     <Trash2 size={16} aria-hidden="true" />
                     {t('share.stop')}
                   </button>
@@ -143,16 +153,17 @@ export function ShareSection({ onReauth, reauthBusy }: { onReauth: () => void; r
         )}
       </div>
 
-      {confirmStop && (
+      {confirm && (
         <ConfirmDialog
-          title={t('share.stopTitle')}
-          body={t('share.stopBody')}
-          confirmLabel={t('share.stop')}
+          title={t(confirm === 'stop' ? 'share.stopTitle' : 'share.changeTitle')}
+          body={t(confirm === 'stop' ? 'share.stopBody' : 'share.changeBody')}
+          confirmLabel={t(confirm === 'stop' ? 'share.stop' : 'share.change')}
           danger
-          onCancel={() => setConfirmStop(false)}
+          onCancel={() => setConfirm(null)}
           onConfirm={() => {
-            setConfirmStop(false);
-            void stopSharing();
+            const c = confirm;
+            setConfirm(null);
+            void (c === 'stop' ? stopSharing() : changeStamp());
           }}
         />
       )}

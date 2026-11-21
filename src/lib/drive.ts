@@ -68,6 +68,7 @@ export interface RemoteFile {
   size?: number;
   description?: string;
   props: Record<string, string>;
+  parent?: string;
 }
 
 export async function listAppFiles(): Promise<RemoteFile[]> {
@@ -146,6 +147,21 @@ export async function createFolder(name: string): Promise<string> {
   });
   if (!res.ok) throw await failure(res);
   return (await res.json()).id as string;
+}
+
+/** Everything this app ever put in the user's normal Drive for sharing (survives reinstalls: found again by its tags). */
+export async function listSharedFiles(): Promise<RemoteFile[]> {
+  const out: RemoteFile[] = [];
+  const q = `trashed=false and (${['smanifest', 'sbook', 'scover', 'sshelf'].map((k) => `appProperties has { key='k' and value='${k}' }`).join(' or ')})`;
+  let pageToken = '';
+  do {
+    const res = await authFetch(`${API}/files?pageSize=1000&q=${encodeURIComponent(q)}&fields=nextPageToken,files(id,name,size,parents,appProperties)${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`);
+    if (!res.ok) throw await failure(res);
+    const j = await res.json();
+    for (const f of j.files ?? []) out.push({ id: f.id, name: f.name, size: f.size ? Number(f.size) : undefined, props: f.appProperties ?? {}, parent: f.parents?.[0] });
+    pageToken = j.nextPageToken ?? '';
+  } while (pageToken);
+  return out;
 }
 
 /** "Anyone with the link can read" — the file id is the secret. */

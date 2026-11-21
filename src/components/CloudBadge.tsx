@@ -34,6 +34,7 @@ export function CloudBadge({ book, variant = 'corner' }: { book: BookRecord; var
   const { t, n } = useT();
   const account = useApp((s) => s.account);
   const tr = useApp((s) => s.transfers[book.id]);
+  if (book.id.startsWith('friend:')) return null; // a friend's book is not in any Drive of mine
   if (!account && !book.remoteOnly) return null;
 
   let icon: React.ReactNode = null;
