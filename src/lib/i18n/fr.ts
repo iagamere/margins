@@ -115,6 +115,8 @@ export const fr: Dict = {
   'account.autoHint': "Chaque fichier ajouté en étant connecté est copié dans Drive.",
   'account.privacy': "Les livres sont rangés dans un dossier caché propre à l'application, dans votre Drive. L'application ne voit pas vos autres fichiers.",
   'cloud.download': "Télécharger le livre",
+  'cloud.readOnline': "Lire en ligne",
+  'cloud.readOnlineHint': "Le livre est téléchargé temporairement et supprimé de l'appareil quand vous quittez la lecture. Il sera retéléchargé la prochaine fois.",
   'cloud.upload': "Envoyer vers Drive",
   'cloud.uploading': "Envoi",
   'cloud.downloading': "Téléchargement",

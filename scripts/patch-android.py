@@ -80,3 +80,26 @@ def main_activity():
     print("patched: MainActivity.java")
 
 main_activity()
+
+
+# Sign every build with the key stored in the repository (keystore/debug.keystore).
+# Without this, Gradle makes a brand-new random debug key on each CI run, so the signing fingerprint changes
+# every build and Google sign-in (which checks that fingerprint) stops working after each update.
+def signing(s):
+    if "margins-fixed-key" in s:
+        return s
+    ks = (root.parent / "keystore" / "debug.keystore").as_posix()
+    block = (
+        "\n    // margins-fixed-key\n"
+        "    signingConfigs {\n"
+        "        debug {\n"
+        f"            storeFile file('{ks}')\n"
+        "            storePassword 'android'\n"
+        "            keyAlias 'androiddebugkey'\n"
+        "            keyPassword 'android'\n"
+        "        }\n"
+        "    }\n"
+    )
+    return re.sub(r"(\nandroid\s*\{)", lambda m: m.group(1) + block, s, count=1)
+
+patch("app/build.gradle", signing)

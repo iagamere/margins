@@ -113,6 +113,8 @@ export const en = {
   'account.autoHint': "Every file you add while signed in is copied to Drive.",
   'account.privacy': "Books are kept in a hidden folder that belongs to this app inside your Drive. The app cannot see your other files.",
   'cloud.download': "Download book",
+  'cloud.readOnline': "Read online",
+  'cloud.readOnlineHint': "The book is downloaded temporarily and removed from this device when you leave the reader. It downloads again next time.",
   'cloud.upload': "Upload to Drive",
   'cloud.uploading': "Uploading",
   'cloud.downloading': "Downloading",

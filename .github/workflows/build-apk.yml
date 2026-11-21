@@ -30,8 +30,13 @@ jobs:
       # Same signing key on every build => Android installs each new APK as an UPDATE (no uninstall needed).
       - name: Use the fixed signing key
         run: |
+          if [ ! -f keystore/debug.keystore ]; then
+            echo "::error title=Signing key missing::keystore/debug.keystore is not in the repository. Upload the project again with the keystore folder included."
+            exit 1
+          fi
           mkdir -p ~/.android
           cp keystore/debug.keystore ~/.android/debug.keystore
+          keytool -list -v -keystore keystore/debug.keystore -storepass android | grep -E "SHA1|SHA-1" | sed 's/^/Expected /'
 
       - name: Build web app
         env:

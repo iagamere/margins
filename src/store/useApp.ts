@@ -121,6 +121,7 @@ export const useApp = create<AppState>((set, get) => ({
       // Covers saved earlier still carry their white page margins: clean them once, in the background.
       void trimExistingCovers(books, (id, cover) => get().updateBook(id, { cover, coverTrimmed: true, coverTrimV: TRIM_VERSION }));
       // Signed in: bring the Drive library up to date in the background.
+      void import('../lib/cloud').then((m) => m.discardAllTempReads());
       if (get().account) void get().syncNow(true);
     } catch {
       set({ books: [], booksLoaded: true });
