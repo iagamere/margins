@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Globe, Library as ShelfIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Library as ShelfIcon, Trash2 } from 'lucide-react';
 import { useApp } from '../store/useApp';
-import { downloadBookFromDrive, readOnline } from '../lib/cloud';
+import { downloadBookFromDrive } from '../lib/cloud';
 import { useT } from '../lib/i18n';
 import { BookCover, PALETTE } from '../components/BookCover';
 import { ColorChoice } from '../components/ColorPicker';
@@ -64,15 +64,6 @@ export function DetailsScreen({ id }: { id: string }) {
                 <BookOpen size={20} aria-hidden="true" />
                 {book.remoteOnly ? (transfer ? `${t('cloud.downloading')} ${Math.round(transfer.pct * 100)}%` : t('cloud.downloadToRead')) : started ? t('book.continue') : t('book.start')}
               </button>
-              {book.remoteOnly && (
-                <>
-                  <button className="btn" disabled={!!transfer} onClick={() => void readOnline(book.id).then((ok) => ok && navigate({ name: 'reader', id: book.id }))}>
-                    <Globe size={19} aria-hidden="true" />
-                    {t('cloud.readOnline')}
-                  </button>
-                  <p className="hint muted" style={{ fontSize: 13, textAlign: 'center', margin: 0, lineHeight: 1.5 }}>{t('cloud.readOnlineHint')}</p>
-                </>
-              )}
               <button className="btn" onClick={() => updateBook(book.id, { finished: !book.finished })}>
                 <Check size={19} aria-hidden="true" />
                 {book.finished ? t('details.markUnread') : t('details.markRead')}

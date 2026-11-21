@@ -115,8 +115,6 @@ export const ar: Dict = {
   'account.autoHint': "كل ملف تضيفه وأنت مسجّل يُنسخ إلى Drive.",
   'account.privacy': "الكتب تُحفظ في مجلد مخفي خاص بالتطبيق داخل Drive الخاص بك، ولا يرى التطبيق بقية ملفاتك.",
   'cloud.download': "تنزيل الكتاب",
-  'cloud.readOnline': "قراءة عبر الإنترنت",
-  'cloud.readOnlineHint': "يُنزَّل الكتاب مؤقتاً ويُحذف من الجهاز عند خروجك من القراءة، ويُنزَّل من جديد في المرة القادمة.",
   'cloud.upload': "رفع إلى Drive",
   'cloud.uploading': "جارٍ الرفع",
   'cloud.downloading': "جارٍ التنزيل",

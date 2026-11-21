@@ -27,7 +27,6 @@ import { pushBackHandler } from '../lib/backStack';
 import { openExternal } from '../lib/platform';
 import { debounce, throttle, uid } from '../lib/utils';
 import { findNeighbours } from '../lib/chapters';
-import { discardTempRead } from '../lib/cloud';
 import { BookmarkPopover } from './BookmarkPopover';
 import type { AnnotationRecord, BookRecord, ErrorCode, HighlightColor, ReaderApi, ReaderPosition, ReaderReadyInfo, ThemeName, TocItem } from '../lib/types';
 import { Sheet } from '../components/Sheet';
@@ -169,14 +168,6 @@ export function ReaderScreen({ id }: { id: string }) {
       flush();
     };
   }, [persist]);
-
-  // "Read online" books: the temporary copy is removed when the reader closes (after the position is saved).
-  useEffect(
-    () => () => {
-      setTimeout(() => void discardTempRead(id), 600);
-    },
-    [id]
-  );
 
   const onPosition = useCallback(
     (p: ReaderPosition) => {
