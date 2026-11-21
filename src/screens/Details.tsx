@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, BookOpen, Check, Library as ShelfIcon, Trash2 } from 'lucide-react';
 import { useApp } from '../store/useApp';
+import { downloadBookFromDrive } from '../lib/cloud';
 import { useT } from '../lib/i18n';
 import { BookCover, PALETTE } from '../components/BookCover';
 import { ColorChoice } from '../components/ColorPicker';
@@ -13,6 +14,7 @@ export function DetailsScreen({ id }: { id: string }) {
   const { t, lang, n } = useT();
   const book = useApp((s) => s.books.find((b) => b.id === id));
   const navigate = useApp((s) => s.navigate);
+  const transfer = useApp((s) => s.transfers[id]);
   const back = useApp((s) => s.back);
   const removeBook = useApp((s) => s.removeBook);
   const updateBook = useApp((s) => s.updateBook);
@@ -58,9 +60,9 @@ export function DetailsScreen({ id }: { id: string }) {
               {book.author && <p className="muted" style={{ fontSize: 17 }} dir="auto">{book.author}</p>}
             </div>
             <div className="actions">
-              <button className="btn btn-primary" onClick={() => navigate({ name: 'reader', id: book.id })}>
+              <button className="btn btn-primary" disabled={!!transfer} onClick={() => (book.remoteOnly ? void downloadBookFromDrive(book.id) : navigate({ name: 'reader', id: book.id }))}>
                 <BookOpen size={20} aria-hidden="true" />
-                {started ? t('book.continue') : t('book.start')}
+                {book.remoteOnly ? (transfer ? `${t('cloud.downloading')} ${Math.round(transfer.pct * 100)}%` : t('cloud.downloadToRead')) : started ? t('book.continue') : t('book.start')}
               </button>
               <button className="btn" onClick={() => updateBook(book.id, { finished: !book.finished })}>
                 <Check size={19} aria-hidden="true" />

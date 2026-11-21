@@ -3,6 +3,7 @@ import type { BookRecord } from '../lib/types';
 import { useT } from '../lib/i18n';
 import { BookCover } from './BookCover';
 import { useLongPress } from './useLongPress';
+import { CloudBadge } from './CloudBadge';
 
 interface Props {
   book: BookRecord;
@@ -25,7 +26,7 @@ export function BookCard({ book, onOpen, onLongPress, selecting, selected }: Pro
   const press = useLongPress(() => onLongPress?.(), onOpen);
   return (
     <button className={'card' + (selected ? ' sel' : '')} {...press} aria-label={book.title} aria-pressed={selecting ? !!selected : undefined}>
-      <BookCover book={book} showFormat />
+      <BookCover book={book} showFormat badge={<CloudBadge book={book} />} />
       {selecting && <Mark selected={!!selected} />}
       <div className="meta">
         <div className="title clamp2" dir="auto">{book.title}</div>
@@ -50,7 +51,7 @@ export function BookRow({ book, onOpen, onLongPress, selecting, selected }: Prop
   const press = useLongPress(() => onLongPress?.(), onOpen);
   return (
     <button className={'view-card' + (selected ? ' sel' : '')} {...press} aria-label={book.title} aria-pressed={selecting ? !!selected : undefined}>
-      <div className="thumb"><BookCover book={book} showFormat /></div>
+      <div className="thumb"><BookCover book={book} showFormat badge={<CloudBadge book={book} />} /></div>
       <div className="meta">
         <div className="title clamp2" dir="auto">{book.title}</div>
         {book.author && <div className="author clamp1" dir="auto">{book.author}</div>}
@@ -73,6 +74,7 @@ export function BookName({ book, onOpen, onLongPress, selecting, selected }: Pro
   return (
     <button className={'view-name' + (selected ? ' sel' : '')} {...press} aria-label={book.title} aria-pressed={selecting ? !!selected : undefined}>
       <span className="nm clamp1" dir="auto">{book.title}</span>
+      {!selecting && <CloudBadge book={book} variant="inline" />}
       {selecting && <Mark selected={!!selected} />}
     </button>
   );

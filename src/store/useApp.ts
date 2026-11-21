@@ -7,6 +7,7 @@ import { uid } from '../lib/utils';
 import { setCustomAccent } from '../lib/accents';
 import { TRIM_VERSION, trimExistingCovers } from '../lib/trim';
 import { AppError } from '../lib/types';
+import { loadAccount, type Account } from '../lib/auth';
 
 export interface Toast {
   id: string;
@@ -31,6 +32,15 @@ interface AppState {
   importing: { done: number; total: number } | null;
   /** The theme actually in effect for the app chrome. */
   resolvedTheme: ThemeName;
+  /** optional Google account (null = local only) */
+  account: Account | null;
+  /** books currently going up to / coming down from Drive */
+  transfers: Record<string, { kind: 'up' | 'down'; pct: number }>;
+  syncing: boolean;
+
+  setAccount(a: Account | null): void;
+  setTransfer(id: string, t: { kind: 'up' | 'down'; pct: number } | null): void;
+  syncNow(quiet?: boolean): Promise<void>;
 
   init(): Promise<void>;
   setSettings(patch: Partial<Settings>): void;
@@ -74,6 +84,34 @@ export const useApp = create<AppState>((set, get) => ({
   toasts: [],
   importing: null,
   resolvedTheme: 'light',
+  account: loadAccount(),
+  transfers: {},
+  syncing: false,
+
+  setAccount(a) {
+    set({ account: a });
+  },
+
+  setTransfer(id, t) {
+    const next = { ...get().transfers };
+    if (t) next[id] = t;
+    else delete next[id];
+    set({ transfers: next });
+  },
+
+  async syncNow(quiet = false) {
+    if (!get().account || get().syncing) return;
+    set({ syncing: true });
+    try {
+      const { syncFromDrive } = await import('../lib/cloud');
+      const r = await syncFromDrive();
+      if (!quiet) get().toast('cloud.synced', 'success', { count: r.inDrive });
+    } catch (e) {
+      get().toast('cloud.syncFailed', 'error', { msg: (e as { message?: string })?.message || String(e) });
+    } finally {
+      set({ syncing: false });
+    }
+  },
 
   async init() {
     try {
@@ -82,6 +120,8 @@ export const useApp = create<AppState>((set, get) => ({
       set({ books, shelves, booksLoaded: true });
       // Covers saved earlier still carry their white page margins: clean them once, in the background.
       void trimExistingCovers(books, (id, cover) => get().updateBook(id, { cover, coverTrimmed: true, coverTrimV: TRIM_VERSION }));
+      // Signed in: bring the Drive library up to date in the background.
+      if (get().account) void get().syncNow(true);
     } catch {
       set({ books: [], booksLoaded: true });
       get().toast('err.storageUnavailable', 'error');
@@ -155,6 +195,8 @@ export const useApp = create<AppState>((set, get) => ({
         last = book;
         if (shelfId) void patchBook(book.id, { shelfId }).catch(() => undefined);
         set({ books: [book, ...get().books] });
+        // Signed in: the new book goes to Google Drive by itself.
+        if (get().account && get().settings.cloudAutoUpload) void import('../lib/cloud').then((m) => m.queueUpload(book.id));
       } else if (res.status === 'duplicate') {
         last = res.book;
         get().toast('import.duplicate', 'info', { title: res.book.title });

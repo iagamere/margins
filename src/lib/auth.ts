@@ -35,7 +35,7 @@ function saveAccount(a: Account | null) {
 }
 
 let ready: Promise<void> | null = null;
-function init(): Promise<void> {
+export function init(): Promise<void> {
   if (!ready) {
     ready = SocialLogin.initialize({ google: { webClientId: GOOGLE_WEB_CLIENT_ID, mode: 'online' } }).catch((e) => {
       ready = null;

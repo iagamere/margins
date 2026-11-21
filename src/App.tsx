@@ -14,6 +14,7 @@ import { LibraryScreen } from './screens/Library';
 import { ContinueScreen } from './screens/Continue';
 import { DetailsScreen } from './screens/Details';
 import { SettingsScreen } from './screens/Settings';
+import { AccountScreen } from './screens/Account';
 import { ReaderScreen } from './reader/ReaderScreen';
 
 export function App() {
@@ -97,6 +98,7 @@ export function App() {
         {route.name === 'library' && <LibraryScreen />}
         {route.name === 'continue' && <ContinueScreen />}
         {route.name === 'settings' && <SettingsScreen />}
+        {route.name === 'account' && <AccountScreen />}
         {route.name === 'details' && <DetailsScreen id={route.id} />}
         <BottomNav />
       </div>

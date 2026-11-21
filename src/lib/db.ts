@@ -83,6 +83,21 @@ export async function duplicateBook(id: string, shelfId: string | undefined): Pr
   return copy;
 }
 
+/** A book record without a file (books that live in Drive only). */
+export async function putBookRecord(book: BookRecord): Promise<void> {
+  await (await getDb()).put('books', book);
+}
+
+/** Stores the file of an already known book (after a download from Drive). */
+export async function putFile(id: string, file: Blob): Promise<void> {
+  try {
+    await (await getDb()).put('files', file, id);
+  } catch (e) {
+    if (isQuotaError(e)) throw new AppError('quota');
+    throw e;
+  }
+}
+
 export async function getFile(id: string): Promise<Blob | undefined> {
   return (await getDb()).get('files', id);
 }

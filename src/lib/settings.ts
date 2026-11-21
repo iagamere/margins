@@ -35,6 +35,7 @@ export function defaultSettings(): Settings {
     libraryView: 'covers',
     librarySort: 'opened',
     libraryReverse: false,
+    cloudAutoUpload: true,
     ...DEFAULT_READING,
   };
 }

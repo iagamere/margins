@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { BookRecord } from '../lib/types';
 import { hashIndex } from '../lib/utils';
 
@@ -18,7 +18,7 @@ export function useObjectUrl(blob?: Blob): string | undefined {
   return url;
 }
 
-export function BookCover({ book, big = false, showFormat = false }: { book: BookRecord; big?: boolean; showFormat?: boolean }) {
+export function BookCover({ book, big = false, showFormat = false, badge }: { book: BookRecord; big?: boolean; showFormat?: boolean; badge?: ReactNode }) {
   const url = useObjectUrl(book.cover);
   const [broken, setBroken] = useState(false);
   const bg = PALETTE[hashIndex(book.id, PALETTE.length)];
@@ -36,6 +36,7 @@ export function BookCover({ book, big = false, showFormat = false }: { book: Boo
         </div>
       )}
       {showFormat && <span className="cover-fmt">{book.format.toUpperCase()}</span>}
+      {badge}
     </div>
   );
 }

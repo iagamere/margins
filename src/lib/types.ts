@@ -44,6 +44,11 @@ export interface BookRecord {
   pdfReflow?: boolean;
   /** the shelf this book sits on (none = loose in the library) */
   shelfId?: string;
+  /** Google Drive file id of the book (set once it is in the user's Drive) */
+  cloudId?: string;
+  coverCloudId?: string;
+  /** the book is in Drive only: no file on this device yet (tap the corner icon to download) */
+  remoteOnly?: boolean;
 }
 
 export type ShelfRatio = '2:3' | '1:1';
@@ -122,12 +127,15 @@ export interface Settings {
   librarySort: LibrarySort;
   /** flips the natural direction of librarySort (newest/A→Z/most read first) */
   libraryReverse: boolean;
+  /** signed in: every imported book is also copied to Google Drive */
+  cloudAutoUpload: boolean;
 }
 
 export type Route =
   | { name: 'library' }
   | { name: 'continue' }
   | { name: 'settings' }
+  | { name: 'account' }
   | { name: 'details'; id: string }
   | { name: 'reader'; id: string };
 
