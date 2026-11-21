@@ -24,7 +24,9 @@
 .rfoot span { max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .epub-host { position: absolute; inset: 0; }
-.epub-host .epub-container { overflow: hidden !important; }
+.epub-host[data-flow='paged'] .epub-container { overflow: hidden !important; }
+/* scrolled reading: the container IS the scroller (it used to be locked with overflow:hidden, so nothing could be scrolled) */
+.epub-host[data-flow='scrolled'] .epub-container { overflow-x: hidden !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior: contain; }
 .reader-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 32px; text-align: center; color: var(--fg2); z-index: 4; background: var(--bg); }
 .reader-state h2 { color: var(--fg); font-family: var(--font-read); font-size: 20px; }
 .reader-state p { max-width: 340px; line-height: 1.6; }

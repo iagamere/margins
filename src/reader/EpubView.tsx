@@ -609,7 +609,7 @@ export function EpubView(props: EpubViewProps) {
 
   return (
     <div className="epub-wrap" style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center', ...wrapStyle }}>
-      <div ref={hostRef} className="epub-host" style={{ position: 'relative', inset: 'auto', width: '100%', maxWidth: scroll ? settings.maxWidth : Math.max(settings.maxWidth, 560), height: '100%' }} dir="ltr" />
+      <div ref={hostRef} className="epub-host" data-flow={scroll ? 'scrolled' : 'paged'} style={{ position: 'relative', inset: 'auto', width: '100%', maxWidth: scroll ? settings.maxWidth : Math.max(settings.maxWidth, 560), height: '100%' }} dir="ltr" />
       {loading && (
         <div className="reader-state" style={{ zIndex: 6 }}>
           <div className="spinner" />

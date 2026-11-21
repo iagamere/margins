@@ -8,7 +8,7 @@ export function detectLang(): Lang {
 }
 
 export const DEFAULT_READING = {
-  readingMode: 'paged',
+  readingMode: 'scroll',
   font: 'auto',
   fontSize: 19,
   lineHeight: 1.7,
