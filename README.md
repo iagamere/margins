@@ -54,3 +54,12 @@ cd android && ./gradlew assembleDebug     # → app/build/outputs/apk/debug/app-
 - DRM-protected EPUBs are not supported.
 - Reading percentage in EPUB is an estimate until the background location index finishes (a few seconds for large books; it is then cached).
 - Highlights cannot be created on top of text that is already highlighted (epub.js overlay behaviour) — tap the existing highlight to edit it.
+
+## Shared library ("stamp")
+
+Account → *Share my library* creates a **stamp** (`MRG-…`). A friend pastes it under *Friends' libraries* and can browse your books and download them together.
+
+- Drive's hidden app folder cannot be shared, so shared books are copied into a normal Drive folder created by the app (scope `drive.file`, non-sensitive) and made "anyone with the link can read". The stamp is the id of a `manifest.json` listing the books. *Stop sharing* deletes everything.
+- Accounts signed in before this feature must sign in again (the screen asks).
+- In the Google Cloud console, add the `drive.file` scope to the OAuth consent screen.
+- Optional but recommended: create an **API key** (Drive API enabled, restricted to the Drive API) and add it as the GitHub secret `GOOGLE_API_KEY` (or `VITE_GOOGLE_API_KEY` locally). With it, downloads from a friend show real progress. Without it the Android app falls back to the native HTTP client (no progress bar, whole file buffered in memory).

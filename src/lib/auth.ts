@@ -5,6 +5,8 @@ import { isNative } from './platform';
 export const GOOGLE_WEB_CLIENT_ID = '185167516974-215uss48abl9s48huj8dvmjc81pd9bg0.apps.googleusercontent.com';
 /** Private per-app folder in the user's Drive: Margins never sees the rest of their files. */
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+/** Files the app itself creates in the user's normal Drive: used only for the shared ("stamp") library. */
+export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 export interface Account {
   name: string;
@@ -12,6 +14,8 @@ export interface Account {
   imageUrl?: string;
   /** Google handed us an access token for Drive (the scope was granted) */
   drive: boolean;
+  /** the sharing permission (drive.file) was granted: accounts signed in before it existed must sign in again */
+  share?: boolean;
 }
 
 const KEY = 'margins.account';
@@ -49,7 +53,7 @@ export function init(): Promise<void> {
 export async function signIn(): Promise<Account> {
   if (!isNative) throw new Error('Google sign-in works in the Android app only.');
   await init();
-  const res: any = await SocialLogin.login({ provider: 'google', options: { scopes: [DRIVE_SCOPE] } });
+  const res: any = await SocialLogin.login({ provider: 'google', options: { scopes: [DRIVE_SCOPE, DRIVE_FILE_SCOPE] } });
   const r = res?.result ?? {};
   const p = r.profile ?? {};
   const account: Account = {
@@ -57,6 +61,7 @@ export async function signIn(): Promise<Account> {
     email: p.email || '',
     imageUrl: p.imageUrl || undefined,
     drive: !!r.accessToken?.token,
+    share: !!r.accessToken?.token,
   };
   saveAccount(account);
   return account;

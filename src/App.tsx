@@ -17,6 +17,7 @@ import { ContinueScreen } from './screens/Continue';
 import { DetailsScreen } from './screens/Details';
 import { SettingsScreen } from './screens/Settings';
 import { AccountScreen } from './screens/Account';
+import { FriendScreen } from './screens/Friend';
 import { ReaderScreen } from './reader/ReaderScreen';
 
 export function App() {
@@ -38,7 +39,7 @@ export function App() {
     initBackButton(() => {
       if (runTopBackHandler()) return true;
       const st = useApp.getState();
-      if (st.route.name === 'reader' || st.route.name === 'details') {
+      if (st.route.name === 'reader' || st.route.name === 'details' || st.route.name === 'friend') {
         if (!st.back()) st.navigate({ name: 'library' }, { replace: true });
         return true;
       }
@@ -104,6 +105,7 @@ export function App() {
         {route.name === 'continue' && <ContinueScreen />}
         {route.name === 'settings' && <SettingsScreen />}
         {route.name === 'account' && <AccountScreen />}
+        {route.name === 'friend' && <FriendScreen key={route.id} id={route.id} />}
         {route.name === 'details' && <DetailsScreen id={route.id} />}
         <BottomNav />
       </div>

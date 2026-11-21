@@ -3,8 +3,10 @@ import { ArrowLeft, Cloud, CloudUpload, LogOut, RefreshCw } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
 import { signIn, signOut } from '../lib/auth';
+import { forgetToken } from '../lib/drive';
 import { uploadAllLocal } from '../lib/cloud';
 import { formatBytes } from '../lib/utils';
+import { ShareSection } from '../components/ShareSection';
 
 export function AccountScreen() {
   const { t, n } = useT();
@@ -37,6 +39,12 @@ export function AccountScreen() {
     } finally {
       setBusy(false);
     }
+  };
+  // accounts that signed in before sharing existed need a fresh consent for the extra permission
+  const doReauth = async () => {
+    await signOut();
+    forgetToken();
+    await doSignIn();
   };
   const doSignOut = async () => {
     await signOut();
@@ -116,6 +124,8 @@ export function AccountScreen() {
             </div>
           </>
         )}
+
+        <ShareSection onReauth={() => void doReauth()} reauthBusy={busy} />
       </div>
     </div>
   );
