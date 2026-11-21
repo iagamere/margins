@@ -1,10 +1,26 @@
 /* Turns a PDF page's positioned text fragments into readable paragraphs.
    This is a heuristic reconstruction: it is intentionally conservative and never touches OCR. */
 
+/** A stretch of text that looks the same all the way through (the PDF's own bold / italic / size). */
+export interface Run {
+  t: string;
+  b?: boolean;
+  i?: boolean;
+  m?: boolean;
+  /** size relative to the paragraph (1 = same), only set when it clearly differs */
+  s?: number;
+}
 export interface Para {
+  /** all the text (the runs joined): used for search and bookmarks */
   text: string;
   kind: 'p' | 'h';
   rtl: boolean;
+  /** the styled pieces; absent when the paragraph is plain */
+  runs?: Run[];
+  /** paragraph size relative to the reading size (headings > 1, small print < 1); absent = 1 */
+  scale?: number;
+  /** the paragraph is centred on the page in the original */
+  center?: boolean;
 }
 export interface PageText {
   paras: Para[];
@@ -18,8 +34,15 @@ const LTR_RE = /[A-Za-zÀ-ɏͰ-ϿЀ-ӿ]/g;
 const MARK_ONLY = /^[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED\u08D3-\u08FF]+$/;
 const TERMINATOR = /[.!?؟…:;"”»)\]’']\s*$/;
 
-interface Frag { s: string; x: number; y: number; w: number; h: number }
-interface Line { y: number; h: number; x0: number; x1: number; text: string; rtl: boolean }
+interface Frag { s: string; x: number; y: number; w: number; h: number; b: boolean; i: boolean; m: boolean }
+interface RawRun { t: string; b: boolean; i: boolean; m: boolean; h: number }
+interface Line { y: number; h: number; x0: number; x1: number; text: string; rtl: boolean; runs: RawRun[] }
+
+const BOLD_RE = /bold|black|heavy|semibold|demi|extrabold|ultra|(?:^|[-,_ +])bd(?:$|[-,_ ])/i;
+const ITALIC_RE = /italic|oblique|slanted/i;
+const MONO_RE = /mono|courier|consolas|typewriter/i;
+const sameStyle = (a: { b?: boolean; i?: boolean; m?: boolean; s?: number }, b: { b?: boolean; i?: boolean; m?: boolean; s?: number }) =>
+  !!a.b === !!b.b && !!a.i === !!b.i && !!a.m === !!b.m && (a.s ?? 1) === (b.s ?? 1);
 
 const isRtl = (s: string) => (s.match(RTL_RE)?.length ?? 0) > (s.match(LTR_RE)?.length ?? 0);
 const median = (a: number[]) => {
@@ -32,14 +55,46 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
   const page = await doc.getPage(num);
   const vp = page.getViewport({ scale: 1 });
   const tc = await page.getTextContent();
+  // pdf.js only knows the real font names (Arial-BoldMT, …) once the page's operators have been read
+  try {
+    await page.getOperatorList();
+  } catch {
+    /* styles then come from the CSS family only */
+  }
   page.cleanup?.();
+
+  /* the real font name (and its bold / italic flags) when pdf.js has it, else the CSS family it reports */
+  const fontCache = new Map<string, { b: boolean; i: boolean; m: boolean }>();
+  const fontInfo = (id: string) => {
+    let f = fontCache.get(id);
+    if (f) return f;
+    let name = '';
+    let bold = false;
+    let italic = false;
+    try {
+      const o = page.commonObjs?.has?.(id) ? page.commonObjs.get(id) : null;
+      if (o) {
+        name = String(o.name ?? o.fallbackName ?? '');
+        bold = !!(o.bold || o.black);
+        italic = !!o.italic;
+      }
+    } catch {
+      /* font object not available yet: fall back to the family below */
+    }
+    const fam = String((tc.styles as any)?.[id]?.fontFamily ?? '');
+    const label = `${name} ${fam}`;
+    f = { b: bold || BOLD_RE.test(label), i: italic || ITALIC_RE.test(label), m: MONO_RE.test(label) || /^monospace$/i.test(fam) };
+    fontCache.set(id, f);
+    return f;
+  };
 
   const frags: Frag[] = [];
   for (const it of tc.items as any[]) {
     if (typeof it.str !== 'string' || !it.str.trim()) continue;
     const t = it.transform as number[];
     const h = Math.hypot(t[2], t[3]) || it.height || 10;
-    frags.push({ s: it.str, x: t[4], y: t[5], w: it.width ?? 0, h });
+    const fi = fontInfo(String(it.fontName ?? ''));
+    frags.push({ s: it.str, x: t[4], y: t[5], w: it.width ?? 0, h, b: fi.b, i: fi.i, m: fi.m });
   }
   if (!frags.length) return { paras: [], chars: 0, endsOpen: false };
 
@@ -97,6 +152,12 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
     const rtl = isRtl(joined);
     gr.sort((a, b) => (rtl ? b.x - a.x : a.x - b.x));
     const h = Math.max(...gr.map((f) => f.h));
+    const runs: RawRun[] = [];
+    const push = (t: string, f: Frag) => {
+      const last = runs[runs.length - 1];
+      if (last && last.b === f.b && last.i === f.i && last.m === f.m && Math.abs(last.h - f.h) < 0.12 * f.h) last.t += t;
+      else runs.push({ t, b: f.b, i: f.i, m: f.m, h: f.h });
+    };
     let text = '';
     gr.forEach((f, k) => {
       if (k > 0) {
@@ -104,9 +165,13 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
         const gap = rtl ? prev.x - (f.x + f.w) : f.x - (prev.x + prev.w);
         // Word gaps are ~0.25em; the gap after Arabic non-joining letters (ا د ذ ر ز و) is far smaller.
         const word = gap > (rtl ? 0.24 : 0.17) * h;
-        if (word && !text.endsWith(' ') && !f.s.startsWith(' ') && !MARK_ONLY.test(f.s[0])) text += ' ';
+        if (word && !text.endsWith(' ') && !f.s.startsWith(' ') && !MARK_ONLY.test(f.s[0])) {
+          text += ' ';
+          push(' ', prev);
+        }
       }
       text += f.s;
+      push(f.s, f);
     });
     return {
       y: gr.reduce((a, f) => a + f.y, 0) / gr.length,
@@ -115,6 +180,7 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
       x1: Math.max(...gr.map((f) => f.x + f.w)),
       text: text.replace(/\s+/g, ' ').trim(),
       rtl,
+      runs,
     };
   });
   lines.sort((a, b) => b.y - a.y);
@@ -138,9 +204,11 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
   const colRight = median(kept.map((l) => l.x1).sort((a, b) => b - a).slice(0, Math.max(1, Math.ceil(kept.length * 0.3))));
   const colW = Math.max(1, colRight - colLeft);
   const isHead = (l: Line) => l.h > body * 1.22 && l.text.length < 140;
+  const colMid = (colLeft + colRight) / 2;
+  const isCentered = (l: Line) => l.x1 - l.x0 < colW * 0.8 && Math.abs((l.x0 + l.x1) / 2 - colMid) < colW * 0.05;
 
   /* ---- lines → paragraphs ---- */
-  type Raw = { text: string; head: boolean };
+  type Raw = { runs: RawRun[]; head: boolean; hs: number[]; centered: boolean; lines: number };
   const raws: Raw[] = [];
   let cur: Raw | null = null;
   let prev: Line | null = null;
@@ -154,22 +222,75 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
       const indent = l.rtl ? colRight - l.x1 > body * 0.8 : l.x0 - colLeft > body * 0.8;
       startNew = head !== cur.head || bigGap || (ended && (short || indent));
     }
+    const runs = l.runs.map((r) => ({ ...r }));
     if (startNew) {
-      cur = { text: l.text, head };
+      cur = { runs, head, hs: [l.h], centered: isCentered(l), lines: 1 };
       raws.push(cur);
     } else if (cur) {
-      if (cur.text.endsWith('-') && /^[a-zà-ÿ]/.test(l.text)) cur.text = cur.text.slice(0, -1) + l.text;
-      else cur.text += ' ' + l.text;
+      const tail = cur.runs[cur.runs.length - 1];
+      if (tail && tail.t.endsWith('-') && /^[a-zà-ÿ]/.test(l.text)) tail.t = tail.t.slice(0, -1);
+      else if (tail) tail.t += ' ';
+      cur.runs.push(...runs);
+      cur.hs.push(l.h);
+      cur.centered = cur.centered && isCentered(l);
+      cur.lines++;
     }
     prev = l;
   }
 
-  const paras: Para[] = raws
-    .map((r) => {
-      const text = r.text.normalize('NFKC').replace(/\s+/g, ' ').trim();
-      return { text, kind: (r.head ? 'h' : 'p') as 'h' | 'p', rtl: isRtl(text) };
-    })
-    .filter((p) => p.text.length > 0);
+  const q = (v: number) => Math.round(v * 20) / 20;
+  const paras: Para[] = [];
+  for (const r of raws) {
+    // normalise each run, glue neighbours that look the same, collapse spaces across run borders
+    const ref = median(r.hs) || body;
+    const runs: Run[] = [];
+    for (const rr of r.runs) {
+      const t = rr.t.normalize('NFKC').replace(/\s+/g, ' ');
+      if (!t) continue;
+      const rel = rr.h / ref;
+      const run: Run = { t };
+      if (rr.b) run.b = true;
+      if (rr.i) run.i = true;
+      if (rr.m) run.m = true;
+      if (Math.abs(rel - 1) > 0.14) run.s = Math.min(1.8, Math.max(0.6, q(rel)));
+      const last = runs[runs.length - 1];
+      if (last && sameStyle(last, run)) last.t += run.t;
+      else {
+        if (last && last.t.endsWith(' ') && run.t.startsWith(' ')) run.t = run.t.slice(1);
+        runs.push(run);
+      }
+    }
+    if (runs.length) {
+      runs[0].t = runs[0].t.replace(/^\s+/, '');
+      runs[runs.length - 1].t = runs[runs.length - 1].t.replace(/\s+$/, '');
+    }
+    const live = runs.filter((x) => x.t.length > 0);
+    const text = live.map((x) => x.t).join('');
+    if (!text) continue;
+
+    const para: Para = { text, kind: r.head ? 'h' : 'p', rtl: isRtl(text) };
+    // paragraph size: headings and small print keep their proportion to the body text
+    const ratio = ref / body;
+    if (r.head) para.scale = Math.min(1.9, Math.max(1.05, q(ratio)));
+    else if (Math.abs(ratio - 1) > 0.12) para.scale = Math.min(1.5, Math.max(0.7, q(ratio)));
+    if (r.centered && r.lines <= 4) para.center = true;
+    // keep run styles only when something differs from plain text (a bold heading is already bold)
+    const plainish = live.every((x) => !x.i && !x.m && x.s === undefined && (!x.b || r.head));
+    if (!plainish) {
+      para.runs = live.map((x) => (r.head && x.b ? { ...x, b: undefined } : x)).map((x) => {
+        const o: Run = { t: x.t };
+        if (x.b) o.b = true;
+        if (x.i) o.i = true;
+        if (x.m) o.m = true;
+        if (x.s !== undefined) o.s = x.s;
+        return o;
+      });
+      // size differences inside a heading are already carried by the heading's own scale
+      if (r.head) para.runs.forEach((x) => delete x.s);
+      if (para.runs.every((x) => !x.b && !x.i && !x.m && x.s === undefined)) delete para.runs;
+    }
+    paras.push(para);
+  }
 
   const last = paras[paras.length - 1];
   return {

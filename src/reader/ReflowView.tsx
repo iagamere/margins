@@ -4,7 +4,7 @@ import { useT } from '../lib/i18n';
 import { contentBox } from '../lib/trim';
 import { useApp } from '../store/useApp';
 import { convertOutline, isPasswordError, loadPdfjs, openPdf, resolveOutlineDest, searchPdf, type OpenedPdf } from '../lib/pdf';
-import { extractPage, type PageText } from '../lib/reflow';
+import { extractPage, type PageText, type Para, type Run } from '../lib/reflow';
 import { resolveFont } from '../lib/readerCss';
 import type { AnnotationRecord, ErrorCode, PassageFocus, ReaderApi, ReaderPosition, ReaderReadyInfo, SearchHit, Settings, ThemeName } from '../lib/types';
 import { clamp, throttle } from '../lib/utils';
@@ -47,6 +47,58 @@ function Highlighted({ text, q }: { text: string; q: string }) {
   }
   out.push(<Fragment key={k++}>{text.slice(from)}</Fragment>);
   return <>{out}</>;
+}
+
+
+/** Wraps a run in the tags that give it the original look (bold / italic / own size / monospace). */
+function styled(r: Run, key: number | string, kids: React.ReactNode) {
+  if (!r.b && !r.i && !r.m && r.s === undefined) return <Fragment key={key}>{kids}</Fragment>;
+  const style: React.CSSProperties = {};
+  if (r.b) style.fontWeight = 700;
+  if (r.i) style.fontStyle = 'italic';
+  if (r.m) style.fontFamily = 'ui-monospace, Menlo, Consolas, monospace';
+  if (r.s !== undefined) style.fontSize = `${r.s}em`;
+  return <span key={key} style={style}>{kids}</span>;
+}
+
+/** The text of a paragraph, piece by piece in its original styles, with search hits marked across the pieces. */
+function ParaText({ para, q }: { para: Para; q: string }) {
+  if (!para.runs) return <Highlighted text={para.text} q={q} />;
+  const needle = q.trim().toLowerCase();
+  const full = para.text.toLowerCase();
+  const hits: [number, number][] = [];
+  if (needle && full.length === para.text.length) {
+    for (let i = full.indexOf(needle); i !== -1; i = full.indexOf(needle, i + needle.length)) hits.push([i, i + needle.length]);
+  }
+  let off = 0;
+  return (
+    <>
+      {para.runs.map((r, k) => {
+        const a = off;
+        const b = off + r.t.length;
+        off = b;
+        const kids: React.ReactNode[] = [];
+        let from = a;
+        for (const [hs, he] of hits) {
+          if (he <= a || hs >= b) continue;
+          const s0 = Math.max(hs, a);
+          const e0 = Math.min(he, b);
+          if (s0 > from) kids.push(r.t.slice(from - a, s0 - a));
+          kids.push(<mark key={`m${s0}`}>{r.t.slice(s0 - a, e0 - a)}</mark>);
+          from = e0;
+        }
+        if (from < b) kids.push(r.t.slice(from - a));
+        return styled(r, k, kids.length ? kids : r.t);
+      })}
+    </>
+  );
+}
+
+function paraStyle(para: Para): React.CSSProperties | undefined {
+  const st: Record<string, string | number> = {};
+  if (para.scale !== undefined) st['--sc'] = para.scale;
+  if (para.center) st.textAlign = 'center';
+  return Object.keys(st).length ? (st as React.CSSProperties) : undefined;
 }
 
 
@@ -315,9 +367,9 @@ const PageBlock = memo(function PageBlock(p: BlockProps) {
           const cont = i === 0 && !!cache.current.get(num - 1)?.endsOpen && para.kind === 'p';
           const cls = (para.rtl ? 'ar' : '') + (cont ? ' cont' : '');
           return para.kind === 'h' ? (
-            <h3 key={i} dir={dirOf(para.rtl)} lang={para.rtl ? 'ar' : undefined} className={cls}><Highlighted text={para.text} q={p.query} /></h3>
+            <h3 key={i} dir={dirOf(para.rtl)} lang={para.rtl ? 'ar' : undefined} className={cls} style={paraStyle(para)}><ParaText para={para} q={p.query} /></h3>
           ) : (
-            <p key={i} dir={dirOf(para.rtl)} lang={para.rtl ? 'ar' : undefined} className={cls}><Highlighted text={para.text} q={p.query} /></p>
+            <p key={i} dir={dirOf(para.rtl)} lang={para.rtl ? 'ar' : undefined} className={cls} style={paraStyle(para)}><ParaText para={para} q={p.query} /></p>
           );
         })}
       {showOrig && (

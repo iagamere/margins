@@ -121,8 +121,10 @@
 .rf-page { position: relative; }
 .rf-page p, .rf-page h3 { margin: 0 0 var(--rf-gap); text-align: var(--rf-align); overflow-wrap: break-word; hyphens: auto; }
 .rf-page p.cont { margin-top: calc(-1 * var(--rf-gap) + 0.15em); }
-.rf-page p.ar, .rf-page h3.ar { font-size: 1.1em; line-height: calc(var(--rf-lh) * 1.12); hyphens: none; letter-spacing: normal; word-spacing: normal; font-variant-ligatures: normal; font-feature-settings: normal; text-align: var(--rf-align); }
-.rf-page h3 { font-size: 1.25em; line-height: 1.35; font-weight: 600; margin: 1.1em 0 0.55em; text-align: start; }
+.rf-page p.ar, .rf-page h3.ar { font-size: calc(var(--sc, 1) * 1.1em); line-height: calc(var(--rf-lh) * 1.12); hyphens: none; letter-spacing: normal; word-spacing: normal; font-variant-ligatures: normal; font-feature-settings: normal; text-align: var(--rf-align); }
+.rf-page p { font-size: calc(var(--sc, 1) * 1em); }
+.rf-page h3 { font-size: calc(var(--sc, 1.25) * 1em); line-height: 1.35; font-weight: 600; margin: 1.1em 0 0.55em; text-align: start; }
+.rf-page h3.ar { font-size: calc(var(--sc, 1.25) * 1.1em); }
 .rf-marker { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 1.6em 0 0.9em; font-family: var(--font-ui); font-size: 12px; color: var(--fg2); letter-spacing: 0.04em; }
 .rf-marker::before { content: ''; flex: 0 0 18px; height: 1px; background: var(--border); order: 0; }
 .rf-marker span { order: 1; white-space: nowrap; }
