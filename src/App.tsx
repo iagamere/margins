@@ -10,6 +10,8 @@ import { BottomNav, SideNav } from './components/Nav';
 import { DropZone } from './components/DropZone';
 import { ImportBanner, Toasts } from './components/Toasts';
 import { UpdateBanner } from './components/UpdateBanner';
+import { LinkImportDialog } from './components/LinkImportDialog';
+import { startLinkListener } from './lib/links';
 import { LibraryScreen } from './screens/Library';
 import { ContinueScreen } from './screens/Continue';
 import { DetailsScreen } from './screens/Details';
@@ -30,6 +32,7 @@ export function App() {
   useEffect(() => {
     void useApp.getState().init();
     void requestPersistence();
+    startLinkListener();
     initBackButton(() => {
       if (runTopBackHandler()) return true;
       const st = useApp.getState();
@@ -105,6 +108,7 @@ export function App() {
       <DropZone />
       <ImportBanner />
       <UpdateBanner />
+      <LinkImportDialog />
       <Toasts />
     </div>
   );

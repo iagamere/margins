@@ -37,7 +37,10 @@ interface AppState {
   /** books currently going up to / coming down from Drive */
   transfers: Record<string, { kind: 'up' | 'down'; pct: number }>;
   syncing: boolean;
+  /** a book link that opened the app (Drive / direct) waiting for the person's choice */
+  incomingLink: string | null;
 
+  setIncomingLink(url: string | null): void;
   setAccount(a: Account | null): void;
   setTransfer(id: string, t: { kind: 'up' | 'down'; pct: number } | null): void;
   syncNow(quiet?: boolean): Promise<void>;
@@ -87,6 +90,11 @@ export const useApp = create<AppState>((set, get) => ({
   account: loadAccount(),
   transfers: {},
   syncing: false,
+  incomingLink: null,
+
+  setIncomingLink(url) {
+    set({ incomingLink: url });
+  },
 
   setAccount(a) {
     set({ account: a });
