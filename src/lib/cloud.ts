@@ -60,6 +60,30 @@ export async function downloadBookFromDrive(id: string): Promise<void> {
   }
 }
 
+/** Downloads several Drive-only books together (a few at a time), with one summary toast. */
+export async function downloadBooksFromDrive(ids: string[], concurrency = 3): Promise<void> {
+  const st = useApp.getState();
+  const todo = ids.filter((id) => {
+    const b = st.books.find((x) => x.id === id);
+    return b?.cloudId && b.remoteOnly && !st.transfers[id];
+  });
+  if (!todo.length) return;
+  st.toast('cloud.groupStarted', 'info', { count: todo.length });
+  // mark them all as pending right away so every badge shows a ring at once
+  todo.forEach((id) => useApp.getState().setTransfer(id, { kind: 'down', pct: 0 }));
+  let next = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      const id = todo[next++];
+      useApp.getState().setTransfer(id, null); // downloadBookFromDrive re-registers it
+      await downloadBookFromDrive(id);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, todo.length) }, worker));
+  const left = todo.filter((id) => useApp.getState().books.find((b) => b.id === id)?.remoteOnly).length;
+  useApp.getState().toast('cloud.groupDone', left ? 'error' : 'success', { count: todo.length - left });
+}
+
 /** Removes the copy in Drive; the book stays on this device. */
 export async function removeFromDrive(id: string): Promise<void> {
   const book = useApp.getState().books.find((b) => b.id === id);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowDownUp, ArrowLeft, ArrowUp, BookCheck, BookPlus, ClipboardPaste, Copy, FolderInput, FolderPlus, LayoutGrid, LayoutList, List, Pencil, Plus, Scissors, Search, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowDownUp, ArrowLeft, ArrowUp, BookCheck, BookPlus, ClipboardPaste, Copy, Download, FolderInput, FolderPlus, LayoutGrid, LayoutList, List, Pencil, Plus, Scissors, Search, Trash2, X } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
 import type { BookRecord, LibraryFilter, LibrarySort, LibraryView } from '../lib/types';
@@ -13,6 +13,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ShelfSheet } from '../components/ShelfSheet';
 import { pushBackHandler } from '../lib/backStack';
 import { AccountButton } from '../components/AccountButton';
+import { downloadBooksFromDrive } from '../lib/cloud';
 
 const FILTERS: LibraryFilter[] = ['all', 'reading', 'completed', 'recent'];
 const SORTS: LibrarySort[] = ['opened', 'added', 'title', 'author', 'progress'];
@@ -148,6 +149,7 @@ export function LibraryScreen() {
   const ids = [...sel];
   const allSelected = shown.length > 0 && shown.every((b) => sel.has(b.id));
   const selBooks = books.filter((b) => sel.has(b.id));
+  const remoteSel = selBooks.filter((b) => b.remoteOnly && b.cloudId);
   const allRead = selBooks.length > 0 && selBooks.every((b) => b.finished);
   const countOf = (id: string) => books.filter((b) => b.shelfId === id).length;
 
@@ -291,7 +293,7 @@ export function LibraryScreen() {
 
       {selecting && (
         <>
-          <div className="sel-bar" role="toolbar">
+          <div className="lib-sel-bar" role="toolbar">
             <button className="icon-btn" onClick={clear} aria-label={t('select.close')}><X size={22} /></button>
             <span className="count">{t('select.count', { count: n(sel.size) })}</span>
             <button className="btn btn-sm btn-ghost" onClick={() => setSel(allSelected ? new Set() : new Set(shown.map((b) => b.id)))}>
@@ -299,6 +301,11 @@ export function LibraryScreen() {
             </button>
           </div>
           <div className="sel-actions" role="toolbar">
+            {remoteSel.length > 0 && (
+              <button onClick={() => { const todo = remoteSel.map((b) => b.id); clear(); void downloadBooksFromDrive(todo); }}>
+                <Download size={22} /><span>{t('select.download')}</span>
+              </button>
+            )}
             <button onClick={() => setDialog('moveSel')}><FolderInput size={22} /><span>{t('select.move')}</span></button>
             <button onClick={() => { setClipboard({ mode: 'cut', ids }); clear(); }}><Scissors size={22} /><span>{t('select.cut')}</span></button>
             <button onClick={() => { setClipboard({ mode: 'copy', ids }); clear(); }}><Copy size={22} /><span>{t('select.copy')}</span></button>

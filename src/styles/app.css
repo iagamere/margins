@@ -262,8 +262,9 @@ textarea.textarea:focus-visible { outline: none; border-color: var(--accent); }
 .card > .sel-mark { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 2; }
 .list-item > .sel-mark { border-color: var(--fg2); background: transparent; box-shadow: none; }
 .list-item > .sel-mark.on { background: var(--accent-ink); border-color: var(--accent-ink); }
-.sel-bar { position: fixed; z-index: 99; top: 0; inset-inline: 0; display: flex; align-items: center; gap: 8px; padding: calc(var(--safe-t) + 6px) 10px 6px; background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow); }
-.sel-bar .count { flex: 1; font-weight: 600; font-size: 16px; }
+.lib-sel-bar { position: fixed; z-index: 99; top: 0; inset-inline: 0; display: flex; align-items: center; gap: 8px; padding: calc(var(--safe-t) + 6px) 10px 6px; background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow); }
+.lib-sel-bar .count { flex: 1; min-width: 0; font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-sel-bar .btn { white-space: nowrap; flex: 0 0 auto; }
 .sel-actions { position: fixed; z-index: 99; bottom: 0; inset-inline: 0; display: flex; padding: 4px 6px calc(var(--safe-b) + 4px); background: var(--surface); border-top: 1px solid var(--border); box-shadow: var(--shadow); }
 .sel-actions button { flex: 1; min-width: 0; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11.5px; font-weight: 500; color: var(--fg); border-radius: var(--radius-sm); }
 .sel-actions button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-inline: 2px; }
