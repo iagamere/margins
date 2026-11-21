@@ -103,7 +103,8 @@ export const useApp = create<AppState>((set, get) => ({
     if (!get().account || get().syncing) return;
     set({ syncing: true });
     try {
-      const { syncFromDrive } = await import('../lib/cloud');
+      const { syncFromDrive, startCloudWatch } = await import('../lib/cloud');
+      startCloudWatch();
       const r = await syncFromDrive();
       if (!quiet) get().toast('cloud.synced', 'success', { count: r.inDrive });
     } catch (e) {

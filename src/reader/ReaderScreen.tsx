@@ -27,7 +27,7 @@ import { pushBackHandler } from '../lib/backStack';
 import { openExternal } from '../lib/platform';
 import { debounce, throttle, uid } from '../lib/utils';
 import { findNeighbours } from '../lib/chapters';
-import { discardTempRead } from '../lib/cloud';
+import { discardTempRead, flushStateUploads, noteAnnotationDeleted, noteAnnotationsChanged } from '../lib/cloud';
 import { BookmarkPopover } from './BookmarkPopover';
 import type { AnnotationRecord, BookRecord, ErrorCode, HighlightColor, ReaderApi, ReaderPosition, ReaderReadyInfo, ThemeName, TocItem } from '../lib/types';
 import { Sheet } from '../components/Sheet';
@@ -173,6 +173,7 @@ export function ReaderScreen({ id }: { id: string }) {
   // "Read online" books: the temporary copy is removed when the reader closes (after the position is saved).
   useEffect(
     () => () => {
+      flushStateUploads();
       setTimeout(() => void discardTempRead(id), 600);
     },
     [id]
@@ -233,6 +234,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const saveAnn = async (a: AnnotationRecord) => {
     try {
       await putAnnotation(a);
+      noteAnnotationsChanged(id);
       setAnnotations((list) => (list.some((x) => x.id === a.id) ? list.map((x) => (x.id === a.id ? a : x)) : [...list, a]));
     } catch (e) {
       toast((e as { code?: string })?.code === 'quota' ? 'err.quota' : 'err.importFailed', 'error', { name: '' });
@@ -241,6 +243,7 @@ export function ReaderScreen({ id }: { id: string }) {
   const removeAnn = async (a: AnnotationRecord) => {
     try {
       await deleteAnnotation(a.id);
+      noteAnnotationDeleted(id, a.id);
       setAnnotations((list) => list.filter((x) => x.id !== a.id));
     } catch {
       toast('err.storageUnavailable', 'error');

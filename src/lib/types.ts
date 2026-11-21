@@ -51,6 +51,10 @@ export interface BookRecord {
   remoteOnly?: boolean;
   /** the file on this device is a temporary copy for "read online": deleted when the reader closes */
   tempRead?: boolean;
+  /** ids of bookmarks/notes deleted here, with the time: so a deletion also reaches the other devices */
+  annDeleted?: Record<string, number>;
+  /** version stamp of the last reading state (progress, notes) exchanged with Drive */
+  stateU?: string;
 }
 
 export type ShelfRatio = '2:3' | '1:1';

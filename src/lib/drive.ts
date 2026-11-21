@@ -83,14 +83,16 @@ export async function listAppFiles(): Promise<RemoteFile[]> {
 }
 
 /** One multipart upload with real progress (XHR). `description` carries the book's details as JSON. */
-export async function uploadFile(name: string, blob: Blob, mime: string, props: Record<string, string>, description: string, onProgress?: (f: number) => void): Promise<string> {
+export async function uploadFile(name: string, blob: Blob, mime: string, props: Record<string, string>, description: string, onProgress?: (f: number) => void, existingId?: string): Promise<string> {
   const boundary = 'margins' + Math.random().toString(36).slice(2);
-  const meta = JSON.stringify({ name, parents: ['appDataFolder'], appProperties: props, description });
+  // an update may not carry `parents`; the name stays as it was
+  const meta = JSON.stringify(existingId ? { appProperties: props, description } : { name, parents: ['appDataFolder'], appProperties: props, description });
   const body = new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`, blob, `\r\n--${boundary}--`]);
   const send = (token: string) =>
     new Promise<{ status: number; text: string }>((resolve, reject) => {
       const x = new XMLHttpRequest();
-      x.open('POST', `${UPLOAD}/files?uploadType=multipart&fields=id`);
+      if (existingId) x.open('PATCH', `${UPLOAD}/files/${existingId}?uploadType=multipart&fields=id`);
+      else x.open('POST', `${UPLOAD}/files?uploadType=multipart&fields=id`);
       x.setRequestHeader('Authorization', `Bearer ${token}`);
       x.setRequestHeader('Content-Type', `multipart/related; boundary=${boundary}`);
       x.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
@@ -129,4 +131,13 @@ export async function downloadFile(id: string, total?: number, onProgress?: (f: 
 export async function deleteFile(id: string): Promise<void> {
   const res = await authFetch(`${API}/files/${id}`, { method: 'DELETE' });
   if (!res.ok && res.status !== 404) throw await failure(res);
+}
+
+/** One file of the app folder by kind (`k`) and, optionally, book hash (`h`). */
+export async function findFile(kind: string, hash?: string): Promise<RemoteFile | null> {
+  const q = `appProperties has { key='k' and value='${kind}' }` + (hash ? ` and appProperties has { key='h' and value='${hash}' }` : '');
+  const res = await authFetch(`${API}/files?spaces=appDataFolder&pageSize=1&q=${encodeURIComponent(q)}&fields=files(id,name,size,description,appProperties)`);
+  if (!res.ok) throw await failure(res);
+  const f = (await res.json()).files?.[0];
+  return f ? { id: f.id, name: f.name, size: f.size ? Number(f.size) : undefined, description: f.description, props: f.appProperties ?? {} } : null;
 }
