@@ -282,7 +282,9 @@ textarea.textarea:focus-visible { outline: none; border-color: var(--accent); }
 /* The search field takes only what the sort / order / view buttons leave: it has no intrinsic width of its own. */
 .tools-row { min-width: 0; flex-wrap: nowrap; }
 .tools-row > .icon-btn { flex: 0 0 auto; }
-.field { min-width: 0; flex: 1 1 0; width: 0; overflow: hidden; }
+/* only inside the library tools row: elsewhere (reader search panel) the field keeps its full width */
+.tools-row .field { min-width: 0; flex: 1 1 0; width: 0; overflow: hidden; }
+.field { min-width: 0; overflow: hidden; }
 .field input { flex: 1 1 0; width: 0; min-width: 0; text-overflow: ellipsis; }
 .field svg { flex-shrink: 0; }
 /* Header: the title shrinks / wraps, the actions never get clipped (they drop to their own line when needed). */
