@@ -313,7 +313,53 @@ export function EpubView(props: EpubViewProps) {
         const sec = book?.spine?.get(Math.max(0, idx - 1));
         if (sec) void rendition.display(sec.href);
       },
-      goToLocation: (loc) => void rendition?.display?.(loc).catch(() => undefined),
+      goToLocation: (loc, focus) => {
+        const r = rendition;
+        if (!r?.display) return;
+        void r
+          .display(loc)
+          .then(() => {
+            if (!focus?.cfiRange) return;
+            const cfi = focus.cfiRange;
+            // scrolled reading: bring the passage to the middle of the screen (paginated pages show it as it is)
+            setTimeout(() => {
+              try {
+                if (P.current.settings.readingMode !== 'scroll') return;
+                const range = r.getRange?.(cfi);
+                const frame = range?.startContainer?.ownerDocument?.defaultView?.frameElement as HTMLElement | null;
+                const box = r.manager?.container as HTMLElement | undefined;
+                if (!range || !frame || !box) return;
+                const q = range.getBoundingClientRect();
+                const f = frame.getBoundingClientRect();
+                const b = box.getBoundingClientRect();
+                box.scrollBy({ top: f.top + q.top + q.height / 2 - (b.top + b.height / 2), behavior: 'smooth' });
+              } catch {
+                /* the passage simply stays where epub.js put it */
+              }
+            }, 250);
+            // two soft pulses over the passage
+            const on = () => {
+              try {
+                r.annotations.highlight(cfi, {}, undefined, 'margins-flash', { fill: focus.color, 'fill-opacity': '0.5', 'mix-blend-mode': 'normal' });
+              } catch {
+                /* ignore */
+              }
+            };
+            const off = () => {
+              try {
+                r.annotations.remove(cfi, 'highlight');
+              } catch {
+                /* ignore */
+              }
+              syncHighlights();
+            };
+            setTimeout(on, 500);
+            setTimeout(off, 950);
+            setTimeout(on, 1150);
+            setTimeout(off, 1800);
+          })
+          .catch(() => undefined);
+      },
       goToToc: (item) => item.href && void rendition?.display?.(item.href).catch(() => undefined),
       goToPercent: (p) => {
         if (!rendition || !book) return;

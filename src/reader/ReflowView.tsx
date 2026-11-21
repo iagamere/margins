@@ -6,7 +6,7 @@ import { useApp } from '../store/useApp';
 import { convertOutline, isPasswordError, loadPdfjs, openPdf, resolveOutlineDest, searchPdf, type OpenedPdf } from '../lib/pdf';
 import { extractPage, type PageText } from '../lib/reflow';
 import { resolveFont } from '../lib/readerCss';
-import type { AnnotationRecord, ErrorCode, ReaderApi, ReaderPosition, ReaderReadyInfo, SearchHit, Settings, ThemeName } from '../lib/types';
+import type { AnnotationRecord, ErrorCode, PassageFocus, ReaderApi, ReaderPosition, ReaderReadyInfo, SearchHit, Settings, ThemeName } from '../lib/types';
 import { clamp, throttle } from '../lib/utils';
 import { makeLimiter, makeRegistry, type Registry } from './PdfView';
 import { resolveMarkColor, softFill } from '../lib/markColor';
@@ -105,6 +105,36 @@ function passageRange(root: HTMLElement, needle: string, ratio: number): Range |
   r.setStart(a.node, a.off);
   r.setEnd(b.node, b.off + 1);
   return r;
+}
+
+
+/** Scrolls so the passage sits in the middle of the screen (the scroll stops by itself at the start / end of the book). */
+function centerRange(sc: HTMLElement, range: Range, smooth: boolean) {
+  const r = range.getBoundingClientRect();
+  const s = sc.getBoundingClientRect();
+  if (!r.height) return;
+  // a passage taller than the screen: start it near the top instead
+  const delta = r.height > s.height * 0.8 ? r.top - (s.top + s.height * 0.12) : r.top + r.height / 2 - (s.top + s.height / 2);
+  sc.scrollTo({ top: Math.max(0, sc.scrollTop + delta), behavior: smooth ? 'smooth' : 'auto' });
+}
+
+/** A soft glow over the passage, in its colour, that fades by itself. */
+function flashRange(sc: HTMLElement, range: Range, color: string) {
+  const col = sc.querySelector<HTMLElement>('.rf-col');
+  if (!col) return;
+  const c = col.getBoundingClientRect();
+  const wrap = document.createElement('div');
+  wrap.className = 'bm-flash-wrap';
+  wrap.style.setProperty('--fc', color);
+  for (const q of Array.from(range.getClientRects()).slice(0, 16)) {
+    if (q.width < 2) continue;
+    const d = document.createElement('div');
+    d.className = 'bm-flash';
+    d.style.cssText = `left:${q.left - c.left - 3}px;top:${q.top - c.top - 2}px;width:${q.width + 6}px;height:${q.height + 4}px`;
+    wrap.appendChild(d);
+  }
+  col.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 2200);
 }
 
 /* The untouched PDF page, drawn on demand inside the text flow (images, tables, scans). */
@@ -459,6 +489,43 @@ export function ReflowView(props: ReflowViewProps) {
     sc.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
   }, []);
 
+  /* Opening a bookmark from the notes: jump to its page, wait for the text to render, centre the passage, make it glow. */
+  const focusToken = useRef(0);
+  const focusPassage = useCallback(
+    (page: number, off: number, focus: PassageFocus) => {
+      const token = ++focusToken.current;
+      scrollToPage(page, off, false);
+      let tries = 0;
+      const find = () => {
+        const sc = scrollerRef.current;
+        const sec = sc?.querySelector<HTMLElement>(`section[data-page="${page}"]`);
+        return sc && sec ? { sc, range: passageRange(sec, focus.text ?? '', off) } : null;
+      };
+      const attempt = () => {
+        if (token !== focusToken.current) return;
+        const f = find();
+        if (!f?.range) {
+          if (++tries < 30) setTimeout(attempt, 90); // the page may still be rendering
+          return;
+        }
+        centerRange(f.sc, f.range, true);
+        setTimeout(() => {
+          // the layout can shift while neighbouring pages render: settle exactly in the middle
+          if (token !== focusToken.current) return;
+          const g = find();
+          if (g?.range) centerRange(g.sc, g.range, false);
+        }, 650);
+        setTimeout(() => {
+          if (token !== focusToken.current) return;
+          const g = find();
+          if (g?.range) flashRange(g.sc, g.range, focus.color);
+        }, 800);
+      };
+      attempt();
+    },
+    [scrollToPage]
+  );
+
   const currentPage = () => {
     let best = 0;
     let bestPx = -1;
@@ -554,9 +621,12 @@ export function ReflowView(props: ReflowViewProps) {
       prev: () => step(-1),
       nextSection: () => scrollToPage(Math.min(total, cur() + 1), 0, true),
       prevSection: () => scrollToPage(Math.max(1, cur() - 1), 0, true),
-      goToLocation: (loc) => {
+      goToLocation: (loc, focus) => {
         const m = /^p:(\d+):([\d.]+)$/.exec(loc);
-        if (m) scrollToPage(clamp(parseInt(m[1], 10), 1, total), parseFloat(m[2]), true);
+        if (!m) return;
+        const page = clamp(parseInt(m[1], 10), 1, total);
+        if (focus?.text) focusPassage(page, parseFloat(m[2]), focus);
+        else scrollToPage(page, parseFloat(m[2]), true);
       },
       goToToc: async (item) => {
         if (!opened) return;
@@ -585,7 +655,7 @@ export function ReflowView(props: ReflowViewProps) {
       },
     } as ReaderApi;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, total, scrollToPage]);
+  }, [opened, total, scrollToPage, focusPassage]);
   apiRef.current = api;
 
   useEffect(() => {

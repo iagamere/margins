@@ -181,12 +181,19 @@ export interface SearchOutcome {
   hasText: boolean;
 }
 
+/** A bookmark/note being opened from the notes list: the reader centres it and makes it glow for a moment. */
+export interface PassageFocus {
+  text?: string;
+  cfiRange?: string;
+  color: string;
+}
+
 export interface ReaderApi {
   next(): void;
   prev(): void;
   nextSection(): void;
   prevSection(): void;
-  goToLocation(loc: string): void;
+  goToLocation(loc: string, focus?: PassageFocus): void;
   goToToc(item: TocItem): void;
   goToPercent(p: number): void;
   search(query: string, onHit: (h: SearchHit) => void, cancel: { cancelled: boolean }): Promise<SearchOutcome>;

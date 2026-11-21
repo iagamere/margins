@@ -180,3 +180,16 @@
 .rbar .chap-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--fg); font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .rbar .chap-btn:disabled { opacity: 0.35; }
 .next-chap { position: absolute; z-index: 4; inset-inline: 0; margin-inline: auto; width: max-content; bottom: calc(18px + var(--safe-b)); display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--accent); color: #fff; font-size: 15px; font-weight: 650; box-shadow: 0 6px 22px rgb(0 0 0 / 0.28); animation: bubbleIn 200ms var(--ease); }
+
+/* opening a bookmark from the notes: the passage glows softly, twice, then fades */
+.rf-col { position: relative; }
+.bm-flash-wrap { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.bm-flash { position: absolute; border-radius: 6px; background: var(--fc); opacity: 0; animation: bmFlash 1.7s ease-in-out forwards; }
+@keyframes bmFlash {
+  0% { opacity: 0; box-shadow: 0 0 0 0 var(--fc); }
+  14% { opacity: 0.5; box-shadow: 0 0 16px 4px var(--fc); }
+  38% { opacity: 0.12; box-shadow: 0 0 0 0 var(--fc); }
+  58% { opacity: 0.5; box-shadow: 0 0 16px 4px var(--fc); }
+  100% { opacity: 0; box-shadow: 0 0 0 0 var(--fc); }
+}
+@media (prefers-reduced-motion: reduce) { .bm-flash { animation-duration: 0.01s; } }

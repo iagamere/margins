@@ -23,6 +23,7 @@ import { useT } from '../lib/i18n';
 import { deleteAnnotation, getAnnotations, getFile, patchBook, putAnnotation } from '../lib/db';
 import { cfiCompare } from '../lib/cfi';
 import { HIGHLIGHT_COLORS } from '../lib/readerCss';
+import { resolveMarkColor } from '../lib/markColor';
 import { pushBackHandler } from '../lib/backStack';
 import { openExternal } from '../lib/platform';
 import { debounce, throttle, uid } from '../lib/utils';
@@ -379,7 +380,8 @@ export function ReaderScreen({ id }: { id: string }) {
   /* ---------- navigation ---------- */
   const goAnn = (a: AnnotationRecord) => {
     setPanel(null);
-    info?.api.goToLocation(a.location);
+    const color = a.type === 'highlight' ? HIGHLIGHT_COLORS[a.color ?? 'gold']?.fill ?? '#D2A95F' : resolveMarkColor(a.markColor, settings.markColor, rtheme);
+    info?.api.goToLocation(a.location, a.text || a.cfiRange ? { text: a.text, cfiRange: a.cfiRange, color } : undefined);
   };
   const { prev: prevChap, next: nextChap } = useMemo(() => findNeighbours(book, allBooks), [book?.id, book?.fileName, book?.title, allBooks]);
   const goChapter = (nb: { book: BookRecord } | null) => {
