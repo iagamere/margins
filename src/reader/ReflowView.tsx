@@ -201,7 +201,7 @@ function flashRange(sc: HTMLElement, range: Range, color: string) {
 }
 
 /* The untouched PDF page, drawn on demand inside the text flow (images, tables, scans). */
-function OriginalPage({ doc, num, adapt }: { doc: any; num: number; adapt: 'none' | 'dark' | 'sepia' }) {
+function OriginalPage({ doc, num, adapt, crop }: { doc: any; num: number; adapt: 'none' | 'dark' | 'sepia'; crop?: { x0: number; y0: number; x1: number; y1: number } }) {
   const host = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -216,26 +216,35 @@ function OriginalPage({ doc, num, adapt }: { doc: any; num: number; adapt: 'none
         const base = page.getViewport({ scale: 1 });
         const cssW = Math.max(200, h.clientWidth || 320);
 
-        // 1) Cheap low-res pass to find the real content box (no white page margins).
+        let x0: number, y0: number, x1: number, y1: number;
         const probeScale = 360 / base.width;
-        const pvp = page.getViewport({ scale: probeScale });
-        const pc = document.createElement('canvas');
-        pc.width = Math.floor(pvp.width);
-        pc.height = Math.floor(pvp.height);
-        const pctx = pc.getContext('2d', { alpha: false, willReadFrequently: true })!;
-        const ptask = page.render({ canvasContext: pctx, viewport: pvp });
-        task = ptask;
-        await ptask.promise;
-        if (cancelled) return;
-        const box = contentBox(pctx, pc.width, pc.height);
-        pc.width = 0;
+        if (crop) {
+          // a picture of the page: PDF points (origin bottom-left) -> viewport points (origin top-left)
+          x0 = Math.max(0, crop.x0);
+          x1 = Math.min(base.width, crop.x1);
+          y0 = Math.max(0, base.height - crop.y1);
+          y1 = Math.min(base.height, base.height - crop.y0);
+        } else {
+          // 1) Cheap low-res pass to find the real content box (no white page margins).
+          const pvp = page.getViewport({ scale: probeScale });
+          const pc = document.createElement('canvas');
+          pc.width = Math.floor(pvp.width);
+          pc.height = Math.floor(pvp.height);
+          const pctx = pc.getContext('2d', { alpha: false, willReadFrequently: true })!;
+          const ptask = page.render({ canvasContext: pctx, viewport: pvp });
+          task = ptask;
+          await ptask.promise;
+          if (cancelled) return;
+          const box = contentBox(pctx, pc.width, pc.height);
+          pc.width = 0;
 
-        // Content rectangle in PDF points (the whole page when it is blank / edge to edge).
-        const pad = 2 / probeScale;
-        const x0 = box ? Math.max(0, box.x0 / probeScale - pad) : 0;
-        const y0 = box ? Math.max(0, box.y0 / probeScale - pad) : 0;
-        const x1 = box ? Math.min(base.width, box.x1 / probeScale + pad) : base.width;
-        const y1 = box ? Math.min(base.height, box.y1 / probeScale + pad) : base.height;
+          // Content rectangle in PDF points (the whole page when it is blank / edge to edge).
+          const pad = 2 / probeScale;
+          x0 = box ? Math.max(0, box.x0 / probeScale - pad) : 0;
+          y0 = box ? Math.max(0, box.y0 / probeScale - pad) : 0;
+          x1 = box ? Math.min(base.width, box.x1 / probeScale + pad) : base.width;
+          y1 = box ? Math.min(base.height, box.y1 / probeScale + pad) : base.height;
+        }
         const bw = Math.max(1, x1 - x0);
         const bh = Math.max(1, y1 - y0);
 
@@ -278,9 +287,9 @@ function OriginalPage({ doc, num, adapt }: { doc: any; num: number; adapt: 'none
         c.height = 0;
       });
     };
-  }, [doc, num]);
+  }, [doc, num, crop?.x0, crop?.y0, crop?.x1, crop?.y1]);
   return (
-    <div ref={host} className={'rf-orig' + (adapt === 'dark' ? ' dark-adapt' : adapt === 'sepia' ? ' sepia-adapt' : '')} style={{ minHeight: 160 }}>
+    <div ref={host} className={'rf-orig' + (adapt === 'dark' ? ' dark-adapt' : adapt === 'sepia' ? ' sepia-adapt' : '')} style={{ minHeight: crop ? 120 : 160 }}>
       {failed && <div className="ph muted">!</div>}
     </div>
   );
@@ -323,7 +332,7 @@ const PageBlock = memo(function PageBlock(p: BlockProps) {
         let res = cache.current.get(num);
         if (!res) {
           try {
-            res = await extractPage(doc, num);
+            res = await extractPage(doc, num, (await loadPdfjs()).lib.OPS);
           } catch {
             res = { paras: [], chars: 0, endsOpen: false };
           }
@@ -364,6 +373,7 @@ const PageBlock = memo(function PageBlock(p: BlockProps) {
       {near && !data && <div className="rf-loading"><div className="spinner" /></div>}
       {near && data && !showOrig &&
         data.paras.map((para, i) => {
+          if (para.kind === 'img' && para.box) return <figure key={i} className="rf-fig"><OriginalPage doc={doc} num={num} adapt="none" crop={para.box} /></figure>;
           const cont = i === 0 && !!cache.current.get(num - 1)?.endsOpen && para.kind === 'p';
           const cls = (para.rtl ? 'ar' : '') + (cont ? ' cont' : '');
           return para.kind === 'h' ? (

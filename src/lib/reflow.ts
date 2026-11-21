@@ -13,7 +13,10 @@ export interface Run {
 export interface Para {
   /** all the text (the runs joined): used for search and bookmarks */
   text: string;
-  kind: 'p' | 'h';
+  /** 'img' is a picture of the page, drawn from the PDF (box) */
+  kind: 'p' | 'h' | 'img';
+  /** img only: where the picture sits on the page, in PDF points (origin bottom-left) */
+  box?: { x0: number; y0: number; x1: number; y1: number };
   rtl: boolean;
   /** the styled pieces; absent when the paragraph is plain */
   runs?: Run[];
@@ -51,17 +54,55 @@ const median = (a: number[]) => {
   return b[Math.floor(b.length / 2)];
 };
 
-export async function extractPage(doc: any, num: number): Promise<PageText> {
+export async function extractPage(doc: any, num: number, OPS?: Record<string, number>): Promise<PageText> {
   const page = await doc.getPage(num);
   const vp = page.getViewport({ scale: 1 });
   const tc = await page.getTextContent();
   // pdf.js only knows the real font names (Arial-BoldMT, …) once the page's operators have been read
+  let oplist: any = null;
   try {
-    await page.getOperatorList();
+    oplist = await page.getOperatorList();
   } catch {
     /* styles then come from the CSS family only */
   }
   page.cleanup?.();
+
+  /* ---- pictures: where each image is painted on the page (the matrix stack of the operator list) ---- */
+  const pics: { x0: number; y0: number; x1: number; y1: number }[] = [];
+  if (oplist && OPS) {
+    const mul = (m: number[], c: number[]) => [
+      m[0] * c[0] + m[1] * c[2], m[0] * c[1] + m[1] * c[3],
+      m[2] * c[0] + m[3] * c[2], m[2] * c[1] + m[3] * c[3],
+      m[4] * c[0] + m[5] * c[2] + c[4], m[4] * c[1] + m[5] * c[3] + c[5],
+    ];
+    const imageOps = new Set([OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject, OPS.paintImageXObjectRepeat].filter((v) => v !== undefined));
+    let ctm = [1, 0, 0, 1, 0, 0];
+    const stack: number[][] = [];
+    const pw = vp.width;
+    const ph = vp.height;
+    for (let k = 0; k < oplist.fnArray.length; k++) {
+      const fn = oplist.fnArray[k];
+      const a = oplist.argsArray[k];
+      if (fn === OPS.save) stack.push(ctm);
+      else if (fn === OPS.restore) ctm = stack.pop() ?? ctm;
+      else if (fn === OPS.transform && Array.isArray(a)) ctm = mul(a as number[], ctm);
+      else if (fn === OPS.paintFormXObjectBegin) {
+        stack.push(ctm);
+        if (Array.isArray(a?.[0])) ctm = mul(a[0] as number[], ctm);
+      } else if (fn === OPS.paintFormXObjectEnd) ctm = stack.pop() ?? ctm;
+      else if (imageOps.has(fn)) {
+        const xs = [0, 1].flatMap((u) => [0, 1].map((v) => ctm[0] * u + ctm[2] * v + ctm[4]));
+        const ys = [0, 1].flatMap((u) => [0, 1].map((v) => ctm[1] * u + ctm[3] * v + ctm[5]));
+        const b = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+        const w = b.x1 - b.x0;
+        const h = b.y1 - b.y0;
+        // skip bullets, rules, logos, and full-page scans / backgrounds (those are the "original page" case)
+        if (w < Math.max(48, pw * 0.15) || h < 48 || (w * h) / (pw * ph) > 0.7) continue;
+        if (pics.some((o) => Math.abs(o.x0 - b.x0) < 4 && Math.abs(o.x1 - b.x1) < 4 && Math.abs(o.y0 - b.y0) < 4 && Math.abs(o.y1 - b.y1) < 4)) continue;
+        pics.push(b);
+      }
+    }
+  }
 
   /* the real font name (and its bold / italic flags) when pdf.js has it, else the CSS family it reports */
   const fontCache = new Map<string, { b: boolean; i: boolean; m: boolean }>();
@@ -208,7 +249,7 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
   const isCentered = (l: Line) => l.x1 - l.x0 < colW * 0.8 && Math.abs((l.x0 + l.x1) / 2 - colMid) < colW * 0.05;
 
   /* ---- lines → paragraphs ---- */
-  type Raw = { runs: RawRun[]; head: boolean; hs: number[]; centered: boolean; lines: number };
+  type Raw = { runs: RawRun[]; head: boolean; hs: number[]; centered: boolean; lines: number; y: number };
   const raws: Raw[] = [];
   let cur: Raw | null = null;
   let prev: Line | null = null;
@@ -220,11 +261,13 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
       const bigGap = prev.y - l.y > typical * 1.55;
       const short = (prev.x1 - prev.x0) < colW * 0.8;
       const indent = l.rtl ? colRight - l.x1 > body * 0.8 : l.x0 - colLeft > body * 0.8;
-      startNew = head !== cur.head || bigGap || (ended && (short || indent));
+      // a picture between the two lines also ends the paragraph
+      const pic = pics.some((b) => (b.y0 + b.y1) / 2 < prev!.y && (b.y0 + b.y1) / 2 > l.y);
+      startNew = head !== cur.head || bigGap || pic || (ended && (short || indent));
     }
     const runs = l.runs.map((r) => ({ ...r }));
     if (startNew) {
-      cur = { runs, head, hs: [l.h], centered: isCentered(l), lines: 1 };
+      cur = { runs, head, hs: [l.h], centered: isCentered(l), lines: 1, y: l.y };
       raws.push(cur);
     } else if (cur) {
       const tail = cur.runs[cur.runs.length - 1];
@@ -239,7 +282,7 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
   }
 
   const q = (v: number) => Math.round(v * 20) / 20;
-  const paras: Para[] = [];
+  const items: { y: number; p: Para }[] = pics.map((b) => ({ y: b.y1, p: { text: '', kind: 'img', rtl: false, box: b } }));
   for (const r of raws) {
     // normalise each run, glue neighbours that look the same, collapse spaces across run borders
     const ref = median(r.hs) || body;
@@ -289,8 +332,10 @@ export async function extractPage(doc: any, num: number): Promise<PageText> {
       if (r.head) para.runs.forEach((x) => delete x.s);
       if (para.runs.every((x) => !x.b && !x.i && !x.m && x.s === undefined)) delete para.runs;
     }
-    paras.push(para);
+    items.push({ y: r.y, p: para });
   }
+  items.sort((a, b) => b.y - a.y);
+  const paras = items.map((x) => x.p);
 
   const last = paras[paras.length - 1];
   return {

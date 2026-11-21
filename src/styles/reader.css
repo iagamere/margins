@@ -125,6 +125,7 @@
 .rf-page p { font-size: calc(var(--sc, 1) * 1em); }
 .rf-page h3 { font-size: calc(var(--sc, 1.25) * 1em); line-height: 1.35; font-weight: 600; margin: 1.1em 0 0.55em; text-align: start; }
 .rf-page h3.ar { font-size: calc(var(--sc, 1.25) * 1.1em); }
+.rf-fig { margin: 0.8em 0 var(--rf-gap); }
 .rf-marker { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 1.6em 0 0.9em; font-family: var(--font-ui); font-size: 12px; color: var(--fg2); letter-spacing: 0.04em; }
 .rf-marker::before { content: ''; flex: 0 0 18px; height: 1px; background: var(--border); order: 0; }
 .rf-marker span { order: 1; white-space: nowrap; }
