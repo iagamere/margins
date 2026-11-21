@@ -599,7 +599,7 @@ export function ReaderScreen({ id }: { id: string }) {
           <PdfView key="orig" bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={posRef.current?.location ?? book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onExternalLink={setExtUrl} onError={onError} />
         )}
         {book && data && format === 'pdf' && settings.pdfReflow && (
-          <ReflowView key="reflow" bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={posRef.current?.location ?? book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onSelect={onSelect} registerClearSelection={registerClear} onExternalLink={setExtUrl} onError={onError} />
+          <ReflowView key="reflow" bookId={id} data={data} settings={settings} theme={rtheme} initialLocation={posRef.current?.location ?? book.location} onReady={onReady} onPosition={onPosition} onToggleUi={toggleUi} onSelect={onSelect} annotations={annotations} registerClearSelection={registerClear} onExternalLink={setExtUrl} onError={onError} />
         )}
         {!data && (
           <div className="reader-state">

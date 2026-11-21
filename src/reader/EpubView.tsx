@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import ePub from 'epubjs';
 import { useT } from '../lib/i18n';
 import { buildEpubCss, collectFontFaceCss, HIGHLIGHT_COLORS } from '../lib/readerCss';
+import { resolveMarkColor } from '../lib/markColor';
 import type { AnnotationRecord, ErrorCode, ReaderApi, ReaderReadyInfo, ReaderPosition, SearchHit, Settings, ThemeName, TocItem } from '../lib/types';
 import { debounce, sleep } from '../lib/utils';
 import { kvGet, kvSet } from '../lib/db';
@@ -63,7 +64,7 @@ export function EpubView(props: EpubViewProps) {
   const cssRef = useRef('');
   const lastCfi = useRef<string | undefined>(props.initialLocation);
   const appliedHl = useRef(new Map<string, { cfiRange: string; color: string }>());
-  const appliedBm = useRef(new Map<string, { cfiRange: string; color: string }>());
+  const appliedBm = useRef(new Map<string, { cfiRange: string; color: string; fill: boolean }>());
   const selContents = useRef<any>(null);
   const syncRef = useRef<null | (() => void)>(null);
 
@@ -410,37 +411,54 @@ export function EpubView(props: EpubViewProps) {
         }
       }
     }
-    /* word bookmarks: small dotted underline in the app's mark colour */
+    /* word bookmarks: small dotted underline + a soft tint of the passage, both in the bookmark's own colour */
     function syncBookmarks() {
       const r = renditionRef.current;
       if (!r) return;
-      const mc = P.current.settings.markColor;
-      const markColor = mc && mc !== 'auto' ? mc : P.current.theme === 'dark' ? '#d98b7f' : P.current.theme === 'sepia' ? '#a4493d' : '#b0503f';
+      const theme = P.current.theme;
+      const colorOf = (a: AnnotationRecord) => resolveMarkColor(a.markColor, P.current.settings.markColor, theme);
+      const hlRanges = new Set<string>();
+      for (const a of P.current.annotations) if (a.type === 'highlight' && a.cfiRange) hlRanges.add(a.cfiRange);
       const want = new Map<string, AnnotationRecord>();
       for (const a of P.current.annotations) if (a.type === 'bookmark' && a.cfiRange) want.set(a.id, a);
+      const drop = (cur: { cfiRange: string; fill: boolean }) => {
+        try {
+          r.annotations.remove(cur.cfiRange, 'underline');
+          if (cur.fill) r.annotations.remove(cur.cfiRange, 'highlight');
+        } catch {
+          /* ignore */
+        }
+      };
       for (const [id, cur] of appliedBm.current) {
         const w = want.get(id);
-        if (!w || w.cfiRange !== cur.cfiRange || cur.color !== markColor) {
-          try {
-            r.annotations.remove(cur.cfiRange, 'underline');
-          } catch {
-            /* ignore */
-          }
+        if (!w || w.cfiRange !== cur.cfiRange || cur.color !== colorOf(w) + theme) {
+          drop(cur);
           appliedBm.current.delete(id);
         }
       }
       for (const [id, a] of want) {
         if (appliedBm.current.has(id)) continue;
+        const color = colorOf(a);
+        let fill = false;
         try {
           r.annotations.underline(a.cfiRange!, { id }, undefined, 'margins-bm', {
-            stroke: markColor,
+            stroke: color,
             'stroke-opacity': '0.95',
             'stroke-width': '2.2',
             'stroke-dasharray': '0.5 4',
             'stroke-linecap': 'round',
             'mix-blend-mode': 'normal',
           });
-          appliedBm.current.set(id, { cfiRange: a.cfiRange!, color: markColor });
+          // a highlight the reader drew on the very same words keeps priority (epub.js keys marks by range + type)
+          if (!hlRanges.has(a.cfiRange!)) {
+            r.annotations.highlight(a.cfiRange!, { id }, undefined, 'margins-bm-fill', {
+              fill: color,
+              'fill-opacity': theme === 'dark' ? '0.3' : '0.22',
+              'mix-blend-mode': theme === 'dark' ? 'normal' : 'multiply',
+            });
+            fill = true;
+          }
+          appliedBm.current.set(id, { cfiRange: a.cfiRange!, color: color + theme, fill });
         } catch {
           /* invalid range — skip */
         }

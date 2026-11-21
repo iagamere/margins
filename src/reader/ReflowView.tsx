@@ -6,9 +6,10 @@ import { useApp } from '../store/useApp';
 import { convertOutline, isPasswordError, loadPdfjs, openPdf, resolveOutlineDest, searchPdf, type OpenedPdf } from '../lib/pdf';
 import { extractPage, type PageText } from '../lib/reflow';
 import { resolveFont } from '../lib/readerCss';
-import type { ErrorCode, ReaderApi, ReaderPosition, ReaderReadyInfo, SearchHit, Settings, ThemeName } from '../lib/types';
+import type { AnnotationRecord, ErrorCode, ReaderApi, ReaderPosition, ReaderReadyInfo, SearchHit, Settings, ThemeName } from '../lib/types';
 import { clamp, throttle } from '../lib/utils';
 import { makeLimiter, makeRegistry, type Registry } from './PdfView';
+import { resolveMarkColor, softFill } from '../lib/markColor';
 import type { EpubSelection } from './EpubView';
 
 export interface ReflowViewProps {
@@ -21,6 +22,8 @@ export interface ReflowViewProps {
   onPosition(p: ReaderPosition): void;
   onToggleUi(): void;
   onSelect?(sel: EpubSelection | null): void;
+  /** bookmarks made on a passage tint that passage in the bookmark's colour */
+  annotations?: AnnotationRecord[];
   registerClearSelection?(fn: () => void): void;
   onExternalLink(url: string): void;
   onError(code: ErrorCode): void;
@@ -44,6 +47,64 @@ function Highlighted({ text, q }: { text: string; q: string }) {
   }
   out.push(<Fragment key={k++}>{text.slice(from)}</Fragment>);
   return <>{out}</>;
+}
+
+
+/**
+ * The DOM range of `needle` inside a rendered page (whitespace-insensitive, as the stored bookmark text is).
+ * When the passage occurs more than once, the occurrence nearest to the saved vertical position wins.
+ */
+function passageRange(root: HTMLElement, needle: string, ratio: number): Range | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (n.parentElement?.closest('.rf-marker, button') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
+  let norm = '';
+  const map: { node: Text; off: number }[] = [];
+  let lastSpace = true;
+  let prevParent: Element | null = null;
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const node = n as Text;
+    const t = node.nodeValue ?? '';
+    if (prevParent && prevParent !== node.parentElement && !lastSpace) {
+      norm += ' ';
+      map.push({ node, off: 0 });
+      lastSpace = true;
+    }
+    prevParent = node.parentElement;
+    for (let i = 0; i < t.length; i++) {
+      if (/\s/.test(t[i])) {
+        if (!lastSpace) {
+          norm += ' ';
+          map.push({ node, off: i });
+          lastSpace = true;
+        }
+      } else {
+        norm += t[i];
+        map.push({ node, off: i });
+        lastSpace = false;
+      }
+    }
+  }
+  const find = (q: string): number[] => {
+    const hits: number[] = [];
+    for (let i = norm.indexOf(q); i !== -1; i = norm.indexOf(q, i + 1)) hits.push(i);
+    return hits;
+  };
+  let len = needle.length;
+  let hits = find(needle);
+  if (!hits.length && needle.length > 30) {
+    hits = find(needle.slice(0, 30)); // the text differs a little: tint from the start of the passage
+  }
+  if (!hits.length) return null;
+  const start = hits.reduce((best, i) => (Math.abs(i / Math.max(1, norm.length) - ratio) < Math.abs(best / Math.max(1, norm.length) - ratio) ? i : best), hits[0]);
+  const end = Math.min(norm.length - 1, start + len - 1);
+  const a = map[start];
+  const b = map[end];
+  if (!a || !b) return null;
+  const r = document.createRange();
+  r.setStart(a.node, a.off);
+  r.setEnd(b.node, b.off + 1);
+  return r;
 }
 
 /* The untouched PDF page, drawn on demand inside the text flow (images, tables, scans). */
@@ -235,6 +296,61 @@ export function ReflowView(props: ReflowViewProps) {
   P.current = props;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+
+
+  /* ----- bookmarked passages: soft tint in the bookmark's colour (CSS Custom Highlight API: no DOM changes) ----- */
+  useEffect(() => {
+    const sc = scrollerRef.current;
+    const reg = (CSS as any).highlights;
+    const HL = (window as any).Highlight;
+    if (!sc || !reg || !HL) return;
+    const styleEl = document.createElement('style');
+    document.head.appendChild(styleEl);
+    let names: string[] = [];
+    let timer: ReturnType<typeof setTimeout>;
+    const apply = () => {
+      const groups = new Map<string, { fill: string; ranges: Range[] }>();
+      for (const a of P.current.annotations ?? []) {
+        if (a.type !== 'bookmark' || !a.text || !a.page) continue;
+        const sec = sc.querySelector<HTMLElement>(`section[data-page="${a.page}"]`);
+        if (!sec) continue;
+        const ratio = Number(/^p:\d+:([\d.]+)/.exec(a.location)?.[1] ?? 0);
+        let range: Range | null = null;
+        try {
+          range = passageRange(sec, a.text, ratio);
+        } catch {
+          range = null;
+        }
+        if (!range) continue;
+        const hex = resolveMarkColor(a.markColor, P.current.settings.markColor, P.current.theme);
+        const name = 'bm-' + hex.slice(1).toLowerCase();
+        const g = groups.get(name) ?? { fill: softFill(hex, P.current.theme), ranges: [] };
+        g.ranges.push(range);
+        groups.set(name, g);
+      }
+      for (const n of names) if (!groups.has(n)) reg.delete(n);
+      names = [...groups.keys()];
+      let css = '';
+      for (const [name, g] of groups) {
+        reg.set(name, new HL(...g.ranges));
+        css += `::highlight(${name}){background-color:${g.fill};}`;
+      }
+      styleEl.textContent = css;
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(apply, 120);
+    };
+    const mo = new MutationObserver(schedule);
+    mo.observe(sc, { childList: true, subtree: true });
+    schedule();
+    return () => {
+      mo.disconnect();
+      clearTimeout(timer);
+      for (const n of names) reg.delete(n);
+      styleEl.remove();
+    };
+  }, [props.annotations, props.settings.markColor, props.theme]);
 
   /* ----- text selection → "bookmark this passage" dock ----- */
   useEffect(() => {
