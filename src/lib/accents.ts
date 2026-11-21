@@ -14,7 +14,7 @@ export const THEME_COLORS: Record<ThemeName, { bg: string; fg: string; fg2: stri
  * `ink` is the accessible shade for text/buttons on light + sepia, `dark` the shade for the dark theme.
  * Olive is the stock palette from tokens.css and needs no override.
  */
-export const ACCENTS: Record<AccentName, { swatch: string; hue: number; light: { accent: string; ink: string } | null; dark: string | null }> = {
+export const ACCENTS: Record<AccentName, { swatch: string; hue: number; light: { accent: string; ink: string } | null; dark: string | null; neutral?: boolean }> = {
   olive: { swatch: '#78816c', hue: 86, light: null, dark: null },
   clay: { swatch: '#a27061', hue: 14, light: { accent: '#a27061', ink: '#865c4f' }, dark: '#c7a297' },
   ochre: { swatch: '#947d4f', hue: 40, light: { accent: '#947d4f', ink: '#76643f' }, dark: '#bea77a' },
@@ -32,7 +32,17 @@ export const PRESET_ACCENTS = (Object.keys(ACCENTS) as AccentName[]).filter((a) 
 /** Derives a full muted accent (light / sepia / dark shades and the tint hue) from any colour the user picked. */
 export function setCustomAccent(hex: string) {
   if (!isHex(hex)) return;
-  const [h, s0] = rgbToHsl(...hexToRgb(hex));
+  const [h, s0, l0] = rgbToHsl(...hexToRgb(hex));
+  // Black / white / grey: no hue at all. Forcing a minimum saturation here is what turned them brown.
+  if (s0 < 0.12 || l0 < 0.1 || l0 > 0.92) {
+    ACCENTS.custom =
+      l0 >= 0.5
+        ? // snow white: snow-white accent on dark, deep charcoal ink on light (white on white would vanish)
+          { swatch: hex, hue: 0, neutral: true, light: { accent: '#3a3f44', ink: '#2b2f33' }, dark: '#f3f6f9' }
+        : // deep charcoal black: charcoal on light, soft snow on dark
+          { swatch: hex, hue: 0, neutral: true, light: { accent: '#26292c', ink: '#16181a' }, dark: '#dfe3e7' };
+    return;
+  }
   const s = Math.min(0.5, Math.max(0.22, s0));
   ACCENTS.custom = {
     swatch: hex,
@@ -59,7 +69,13 @@ interface Tint {
 }
 
 /** Neutrals for light / dark tinted with the accent hue (same lightness steps as the stock palette). */
-function tint(hue: number, theme: 'light' | 'dark'): Tint {
+function tint(hue: number, theme: 'light' | 'dark', neutral = false): Tint {
+  if (neutral) {
+    // colourless: deep carbon in dark, cool snow in light — no warm or brown cast anywhere
+    return theme === 'light'
+      ? { bg: '#f5f7f9', bg2: '#ebeef1', surface: '#ffffff', fg: '#16181a', fg2: '#5f656b', border: '#dfe3e7' }
+      : { bg: '#0e0f10', bg2: '#151617', surface: '#1c1d1f', fg: '#ecedee', fg2: '#a0a3a6', border: '#2a2c2e' };
+  }
   return theme === 'light'
     ? { bg: hsl(hue, 0.22, 0.955), bg2: hsl(hue, 0.18, 0.925), surface: '#ffffff', fg: hsl(hue, 0.12, 0.15), fg2: hsl(hue, 0.07, 0.43), border: hsl(hue, 0.16, 0.885) }
     : { bg: hsl(hue, 0.08, 0.1), bg2: hsl(hue, 0.08, 0.13), surface: hsl(hue, 0.09, 0.165), fg: hsl(hue, 0.14, 0.9), fg2: hsl(hue, 0.07, 0.66), border: hsl(hue, 0.09, 0.23) };
@@ -71,7 +87,7 @@ export function themeColors(name: AccentName, theme: ThemeName): { bg: string; f
   const stock = THEME_COLORS[theme];
   if (!a?.light || !a.dark) return stock;
   if (theme === 'sepia') return { ...stock, accent: a.light.ink };
-  const t = tint(a.hue, theme);
+  const t = tint(a.hue, theme, a.neutral);
   return { bg: t.bg, fg: t.fg, fg2: t.fg2, accent: theme === 'dark' ? a.dark : a.light.ink };
 }
 
@@ -82,11 +98,12 @@ export function themeColors(name: AccentName, theme: ThemeName): { bg: string; f
 export function accentCss(name: AccentName): string {
   const a = ACCENTS[name];
   if (!a?.light || !a.dark) return '';
-  const L = tint(a.hue, 'light');
-  const D = tint(a.hue, 'dark');
-  const light = `[data-theme='light']{--bg:${L.bg};--bg2:${L.bg2};--surface:${L.surface};--fg:${L.fg};--fg2:${L.fg2};--border:${L.border};--accent:${a.light.accent};--accent-ink:${a.light.ink};--overlay:${hsl(a.hue, 0.15, 0.15)}61;--shadow:0 1px 2px ${hsl(a.hue, 0.12, 0.15)}0f,0 8px 24px ${hsl(a.hue, 0.12, 0.15)}14;}`;
+  const L = tint(a.hue, 'light', a.neutral);
+  const D = tint(a.hue, 'dark', a.neutral);
+  const sat = a.neutral ? 0 : 1;
+  const light = `[data-theme='light']{--bg:${L.bg};--bg2:${L.bg2};--surface:${L.surface};--fg:${L.fg};--fg2:${L.fg2};--border:${L.border};--accent:${a.light.accent};--accent-ink:${a.light.ink};--overlay:${hsl(a.hue, 0.15 * sat, 0.15)}61;--shadow:0 1px 2px ${hsl(a.hue, 0.12 * sat, 0.15)}0f,0 8px 24px ${hsl(a.hue, 0.12 * sat, 0.15)}14;}`;
   const dark = `[data-theme='dark']{--bg:${D.bg};--bg2:${D.bg2};--surface:${D.surface};--fg:${D.fg};--fg2:${D.fg2};--border:${D.border};--accent:${a.dark};--accent-ink:${a.dark};--on-accent:${D.bg};}`;
   const sepia = `[data-theme='sepia']{--accent:${a.light.accent};--accent-ink:${a.light.ink};}`;
-  const pdf = `.reader[data-theme='light'] .pdf-scroller{--pdf-bg:${hsl(a.hue, 0.1, 0.9)};}.reader[data-theme='dark'] .pdf-scroller{--pdf-bg:${hsl(a.hue, 0.08, 0.075)};}`;
+  const pdf = `.reader[data-theme='light'] .pdf-scroller{--pdf-bg:${hsl(a.hue, 0.1 * sat, 0.9)};}.reader[data-theme='dark'] .pdf-scroller{--pdf-bg:${hsl(a.hue, 0.08 * sat, 0.075)};}`;
   return light + dark + sepia + pdf;
 }
