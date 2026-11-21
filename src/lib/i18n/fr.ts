@@ -96,6 +96,7 @@ export const fr: Dict = {
   'settings.clearBody': 'Tous les livres importés, votre progression, signets, surlignages, notes et réglages seront définitivement supprimés de cet appareil.',
   'settings.cleared': 'Toutes les données ont été effacées.',
   'settings.about': 'À propos',
+  'link.opening': "Ajout du livre à votre bibliothèque…",
   'link.title': "Livre depuis un lien",
   'link.body': "Un lien de livre s'est ouvert dans Margins. L'ajouter à votre bibliothèque ou l'ouvrir dans Google Drive ?",
   'link.import': "Ajouter à ma bibliothèque",

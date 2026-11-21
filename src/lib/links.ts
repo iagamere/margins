@@ -99,6 +99,9 @@ function asBookFile(blob: Blob, kind: 'pdf' | 'epub', name?: string): File {
 export async function openLocalFile(url: string) {
   const st = useApp.getState();
   try {
+    // a cold start brings the link before the library has been read from the database
+    for (let i = 0; i < 50 && !useApp.getState().booksLoaded; i++) await new Promise((r) => setTimeout(r, 100));
+    st.toast('link.opening', 'info');
     const last = decodeURIComponent(url.split('/').pop() ?? '');
     const name = last.replace(/^\d{10,}_/, '') || undefined;
     const blob = await (await fetch(Capacitor.convertFileSrc(url))).blob();
@@ -108,6 +111,7 @@ export async function openLocalFile(url: string) {
       return;
     }
     const book = await st.importFiles([asBookFile(blob, kind, name)]);
+    await st.reloadBooks();
     if (book) st.navigate({ name: 'reader', id: book.id });
   } catch (e) {
     st.toast('link.failed', 'error', { msg: (e as { message?: string })?.message || String(e) });

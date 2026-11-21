@@ -41,6 +41,8 @@ interface AppState {
   incomingLink: string | null;
 
   setIncomingLink(url: string | null): void;
+  /** Re-reads the library from the database: another window of the app (e.g. one opened from Telegram) may have added books. */
+  reloadBooks(): Promise<void>;
   setAccount(a: Account | null): void;
   setTransfer(id: string, t: { kind: 'up' | 'down'; pct: number } | null): void;
   syncNow(quiet?: boolean): Promise<void>;
@@ -94,6 +96,30 @@ export const useApp = create<AppState>((set, get) => ({
 
   setIncomingLink(url) {
     set({ incomingLink: url });
+  },
+
+  async reloadBooks() {
+    try {
+      const fresh = await getAllBooks();
+      const cur = get().books;
+      const byId = new Map(cur.map((b) => [b.id, b]));
+      const reading = get().route.name === 'reader' ? (get().route as { id: string }).id : null;
+      const added = fresh.filter((b) => !byId.has(b.id));
+      let changed = added.length > 0;
+      const merged = cur.map((b) => {
+        const f = fresh.find((x) => x.id === b.id);
+        // the open book is left alone: the reader is writing its position right now
+        if (!f || b.id === reading) return b;
+        if (f.percentage !== b.percentage || f.finished !== b.finished || f.lastOpenedAt !== b.lastOpenedAt || f.shelfId !== b.shelfId || f.cloudId !== b.cloudId || f.remoteOnly !== b.remoteOnly || f.location !== b.location) {
+          changed = true;
+          return f;
+        }
+        return b;
+      });
+      if (changed) set({ books: [...added, ...merged] });
+    } catch {
+      /* the next resume tries again */
+    }
   },
 
   setAccount(a) {

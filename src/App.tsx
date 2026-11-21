@@ -33,6 +33,8 @@ export function App() {
     void useApp.getState().init();
     void requestPersistence();
     startLinkListener();
+    // another window of the app may have added books while this one was in the background
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void useApp.getState().reloadBooks());
     initBackButton(() => {
       if (runTopBackHandler()) return true;
       const st = useApp.getState();

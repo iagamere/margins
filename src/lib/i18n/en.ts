@@ -94,6 +94,7 @@ export const en = {
   'settings.clearBody': 'Every imported book, your progress, bookmarks, highlights, notes and settings will be permanently deleted from this device.',
   'settings.cleared': 'All data cleared.',
   'settings.about': 'About',
+  'link.opening': "Adding the book to your library…",
   'link.title': "Book from a link",
   'link.body': "A book link opened in Margins. Add it to your library, or open it in Google Drive?",
   'link.import': "Add to my library",
