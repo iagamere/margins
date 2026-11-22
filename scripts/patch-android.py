@@ -230,3 +230,29 @@ def signing(s):
     return re.sub(r"(\nandroid\s*\{)", lambda m: m.group(1) + block, s, count=1)
 
 patch("app/build.gradle", signing)
+
+
+# @capacitor/background-runner (shelf notifications) needs android-js-engine-release.aar on the app's file repo.
+# Give it the copy that ships inside the npm package; when the package has none, drop the plugin from the Android
+# build so the APK still builds (the app then simply has no background notifications).
+def background_runner():
+    pkg = root.parent / "node_modules" / "@capacitor" / "background-runner"
+    if not pkg.exists():
+        return
+    found = [p for p in pkg.rglob("android-js-engine*.aar")]
+    libs = root / "app" / "libs"
+    if found:
+        libs.mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.copy2(found[0], libs / "android-js-engine-release.aar")
+        print(f"background-runner: copied {found[0].name} to app/libs")
+        return
+    print("background-runner: engine .aar not in the package - removing the plugin from the Android build")
+    for rel in ("capacitor.settings.gradle", "app/capacitor.build.gradle"):
+        p = root / rel
+        if p.exists():
+            lines = [l for l in p.read_text(encoding="utf-8").splitlines(True) if "capacitor-background-runner" not in l]
+            p.write_text("".join(lines), encoding="utf-8")
+            print(f"patched: {rel}")
+
+background_runner()
