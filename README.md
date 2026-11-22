@@ -65,3 +65,9 @@ Account → *Share my library* creates a **stamp** (`MRG-…`). A friend pastes 
 - Optional but recommended: create an **API key** (Drive API enabled, restricted to the Drive API) and add it as the GitHub secret `GOOGLE_API_KEY` (or `VITE_GOOGLE_API_KEY` locally). With it, downloads from a friend show real progress. Without it the Android app falls back to the native HTTP client (no progress bar, whole file buffered in memory).
 
 The stamp is stable: the shared files are tagged in Drive, so after a reinstall the same stamp is found again. It only changes through *Change stamp*. Friends' libraries (list, shelves, covers) are cached on the device and open offline.
+
+## Profiles, follow and shelf notifications
+
+- A shared library is a **profile page**: picture, name, optional bio, then shelves and books. Open one with its code (`MRG-…`) or the link `margins://u/<code>`.
+- **Follow** a profile, then tap the **bell** on the shelves you care about. When a new book appears on a watched shelf you get a notification.
+- No server: `@capacitor/background-runner` runs `public/runners/background.js` about every 15 minutes (Android decides the exact moment; battery savers can delay it, so exclude the app from battery optimisation) and also each time the app is opened. The plugin is called through `registerPlugin`, so if it is removed from `package.json` the app still builds — only notifications stop.

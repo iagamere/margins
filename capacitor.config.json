@@ -10,6 +10,14 @@
   "plugins": {
     "SystemBars": {
       "insetsHandling": "css"
+    },
+    "BackgroundRunner": {
+      "label": "app.margins.reader.check",
+      "src": "runners/background.js",
+      "event": "checkLibraries",
+      "repeat": true,
+      "interval": 15,
+      "autoStart": true
     }
   }
 }

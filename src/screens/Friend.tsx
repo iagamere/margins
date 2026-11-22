@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, Download, LayoutGrid, LayoutList, List, RefreshCw, Search, WifiOff, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Bell, BellRing, Download, LayoutGrid, LayoutList, List, RefreshCw, Search, UserCheck, UserPlus, WifiOff, X } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { useT } from '../lib/i18n';
-import { cachedManifest, downloadShared, friendBlob, loadManifest, loadShare, refreshFriend, useShare, type ShareEntry, type ShareManifest } from '../lib/share';
+import { cachedManifest, downloadShared, friendBlob, loadManifest, loadShare, refreshFriend, setFollowing, toggleWatch, useShare, type ShareEntry, type ShareManifest } from '../lib/share';
 import type { BookRecord, LibraryView, ShelfRecord } from '../lib/types';
 import { BookCard, BookName, BookRow } from '../components/BookCard';
 import { ShelfItem } from '../components/ShelfViews';
 import { pushBackHandler } from '../lib/backStack';
 import { formatBytes } from '../lib/utils';
+import { useObjectUrl } from '../components/BookCover';
 
 const VIEWS: LibraryView[] = ['covers', 'cards', 'names'];
 const VIEW_ICON = { covers: LayoutGrid, cards: LayoutList, names: List } as const;
@@ -63,7 +64,7 @@ export function FriendScreen({ id }: { id: string }) {
   // covers and shelf pictures arrive a few at a time and are kept on the device
   useEffect(() => {
     if (!m) return;
-    const ids = [...(m.shelves ?? []).map((s) => s.i), ...m.books.map((b) => b.cover)].filter((x): x is string => !!x);
+    const ids = [m.profile?.a, ...(m.shelves ?? []).map((s) => s.i), ...m.books.map((b) => b.cover)].filter((x): x is string => !!x);
     for (const fid of ids) {
       void friendBlob(fid).then((b) => {
         if (b && alive.current) setCovers((cur) => (cur[fid] ? cur : { ...cur, [fid]: b }));
@@ -176,32 +177,67 @@ export function FriendScreen({ id }: { id: string }) {
       onOpen: () => (have ? toast('friends.owned', 'info') : toggle(e.h)),
     };
   };
-  const title = shelf ? shelf.name : t('friends.of', { name: m?.name || friend?.name || t('friends.noName') });
+  const following = !!friend?.following;
+  const watched = new Set(friend?.watch ?? []);
+  const who = m?.profile?.n || m?.name || friend?.name || t('friends.noName');
+  const avatarUrl = useObjectUrl(m?.profile?.a ? covers[m.profile.a] : undefined);
+  const follow = async () => {
+    await setFollowing(id, !following);
+    toast(following ? 'follow.off' : 'follow.started', 'info', { name: who });
+  };
+  const bell = async (sh: { id: string; name: string }) => {
+    const on = !watched.has(sh.id);
+    const ok = await toggleWatch(id, sh, on);
+    toast(!ok ? 'notify.unavailable' : on ? 'follow.shelfOn' : 'follow.shelfOff', ok ? 'success' : 'error', { shelf: sh.name });
+  };
+  const title = shelf ? shelf.name : who;
 
   return (
     <div className="screen">
       <div className="screen-pad" style={{ paddingBottom: selecting ? 120 : 28 }}>
         <header className="page-head">
-          <div style={{ marginInline: -10, marginBottom: -6 }}>
+          <div className="row" style={{ marginInline: -10, marginBottom: -6, justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={goBack} aria-label={t('common.back')}>
               <ArrowLeft className="flip" size={22} />
             </button>
-          </div>
-          <div className="top">
-            <h1 className={'h-display' + (title.length > 9 ? ' long' : '')} dir="auto">
-              {shelf?.color && <i className="shelf-dot big" style={{ background: shelf.color }} aria-hidden="true" />}
-              {title}
-            </h1>
-            <div className="row top-actions">
+            <div className="row" style={{ gap: 2 }}>
+              {shelf && following && (
+                <button className={'icon-btn' + (watched.has(shelf.id) ? ' bell-on' : '')} onClick={() => void bell({ id: shelf.id, name: shelf.name })} aria-pressed={watched.has(shelf.id)} aria-label={t('friends.bell')} title={t('friends.bell')}>
+                  {watched.has(shelf.id) ? <BellRing size={21} /> : <Bell size={21} />}
+                </button>
+              )}
               <button className="icon-btn" disabled={loading || working} onClick={() => void load(true)} aria-label={t('friends.refresh')} title={t('friends.refresh')}>
                 <RefreshCw size={21} className={loading ? 'spin' : undefined} />
               </button>
             </div>
           </div>
-          {m && (
-            <div className="hint muted" style={{ fontSize: 13 }}>
-              {t('friends.books', { count: n(m.books.length) })} · {t('friends.updated', { date: new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(m.updated) })}
+          {shelf ? (
+            <div className="top">
+              <h1 className={'h-display' + (title.length > 9 ? ' long' : '')} dir="auto">
+                {shelf.color && <i className="shelf-dot big" style={{ background: shelf.color }} aria-hidden="true" />}
+                {title}
+              </h1>
             </div>
+          ) : (
+            <>
+              <div className="fr-profile">
+                <span className="fr-avatar" aria-hidden="true">{avatarUrl ? <img src={avatarUrl} alt="" /> : who.trim().charAt(0).toUpperCase()}</span>
+                <div className="fr-pinfo">
+                  <h1 className="h-display long" dir="auto">{who}</h1>
+                  {m?.profile?.b && <p className="fr-bio" dir="auto">{m.profile.b}</p>}
+                  {m && <div className="hint muted" style={{ fontSize: 13 }}>{t('profile.stats', { books: n(m.books.length), shelves: n(shelfRecs.length) })} · {t('friends.updated', { date: new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(m.updated) })}</div>}
+                </div>
+              </div>
+              {m && (
+                <>
+                  <button className={'btn ' + (following ? '' : 'btn-primary')} onClick={() => void follow()} aria-pressed={following}>
+                    {following ? <UserCheck size={18} aria-hidden="true" /> : <UserPlus size={18} aria-hidden="true" />}
+                    {following ? t('follow.on') : t('follow.btn')}
+                  </button>
+                  {following && <p className="hint" style={{ margin: 0, lineHeight: 1.55 }}>{shelfRecs.length ? t('follow.hint') : t('follow.noShelves')}</p>}
+                </>
+              )}
+            </>
           )}
         </header>
 
@@ -242,7 +278,14 @@ export function FriendScreen({ id }: { id: string }) {
                 <h2 className="eyebrow section-title" style={{ marginBottom: 0 }}>{t('shelf.section')}</h2>
                 <div className={view === 'covers' ? 'shelves' : view === 'cards' ? 'stack' : 'list'} style={view === 'covers' ? undefined : { marginTop: 12 }}>
                   {shelfRecs.map((x) => (
-                    <ShelfItem key={x.id} shelf={x} view={view} count={countOf(x.id)} onOpen={() => setOpenShelf(x.id)} />
+                    <div className="fr-shelfwrap" key={x.id}>
+                      <ShelfItem shelf={x} view={view} count={countOf(x.id)} onOpen={() => setOpenShelf(x.id)} />
+                      {following && (
+                        <button className={'fr-bell' + (watched.has(x.id) ? ' on' : '')} onClick={() => void bell({ id: x.id, name: x.name })} aria-pressed={watched.has(x.id)} aria-label={t('friends.bell')} title={t('friends.bell')}>
+                          {watched.has(x.id) ? <BellRing size={17} /> : <Bell size={17} />}
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               </>

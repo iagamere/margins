@@ -43,6 +43,12 @@ export function handleIncomingUrl(url: string | undefined) {
     void openLocalFile(url);
     return;
   }
+  // margins://u/<stamp>: someone's profile
+  const prof = /^margins:\/\/u\/([\w-]{15,})/i.exec(url.trim());
+  if (prof) {
+    void import('./share').then((m) => m.openProfileByCode(prof[1]));
+    return;
+  }
   if (!parseBookLink(url)) {
     useApp.getState().toast('link.unsupported', 'info');
     return;

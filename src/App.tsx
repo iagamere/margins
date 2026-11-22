@@ -12,6 +12,7 @@ import { ImportBanner, Toasts } from './components/Toasts';
 import { UpdateBanner } from './components/UpdateBanner';
 import { LinkImportDialog } from './components/LinkImportDialog';
 import { startLinkListener } from './lib/links';
+import { startNotifyLoop } from './lib/notify';
 import { LibraryScreen } from './screens/Library';
 import { ContinueScreen } from './screens/Continue';
 import { DetailsScreen } from './screens/Details';
@@ -34,6 +35,7 @@ export function App() {
     void useApp.getState().init();
     void requestPersistence();
     startLinkListener();
+    startNotifyLoop();
     // another window of the app may have added books while this one was in the background
     document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void useApp.getState().reloadBooks());
     initBackButton(() => {

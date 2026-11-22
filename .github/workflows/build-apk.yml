@@ -25,7 +25,7 @@ jobs:
           java-version: 21
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --legacy-peer-deps
 
       # Same signing key on every build => Android installs each new APK as an UPDATE (no uninstall needed).
       - name: Use the fixed signing key

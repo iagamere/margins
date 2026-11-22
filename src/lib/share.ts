@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { useApp } from '../store/useApp';
 import { getFile, kvGet, kvSet } from './db';
+import { askNotifyPermission, runnerSend } from './notify';
 import { createFolder, deleteFile, fetchPublicBlob, fetchPublicJson, listSharedFiles, makePublic, uploadFile } from './drive';
 
 /**
@@ -36,9 +37,18 @@ export interface ShareShelf {
   i?: string;
   ratio?: '2:3' | '1:1';
 }
+export interface ShareProfile {
+  /** display name */
+  n: string;
+  /** short bio (optional) */
+  b?: string;
+  /** Drive id of the profile picture */
+  a?: string;
+}
 export interface ShareManifest {
   v: 1;
   name: string;
+  profile?: ShareProfile;
   updated: number;
   shelves?: ShareShelf[];
   books: ShareEntry[];
@@ -50,29 +60,41 @@ export interface ShareState {
   files: Record<string, { file: string; cover?: string }>;
   /** shelf pictures already in Drive: shelf id -> picture signature + file id */
   shelfFiles?: Record<string, { sig: string; file: string }>;
+  avatar?: { sig: string; file: string };
   updated: number;
+}
+/** What I show on my own profile page (kept on this device, published with the library). */
+export interface MyProfile {
+  name: string;
+  bio: string;
+  avatar?: Blob;
 }
 export interface FriendRec {
   id: string;
   name: string;
   count: number;
   addedAt: number;
+  /** I follow this profile */
+  following?: boolean;
+  /** ids of the shelves whose new books notify me */
+  watch?: string[];
 }
 
 interface ShareStore {
   loaded: boolean;
   mine: ShareState | null;
   friends: FriendRec[];
+  profile: MyProfile;
   busy: { done: number; total: number } | null;
 }
-export const useShare = create<ShareStore>(() => ({ loaded: false, mine: null, friends: [], busy: null }));
+export const useShare = create<ShareStore>(() => ({ loaded: false, mine: null, friends: [], profile: { name: '', bio: '' }, busy: null }));
 
 const msg = (e: unknown) => (e as { message?: string })?.message || String(e);
 
 export async function loadShare(): Promise<void> {
   if (useShare.getState().loaded) return;
-  const [mine, friends] = await Promise.all([kvGet<ShareState>('share'), kvGet<FriendRec[]>('friends')]);
-  useShare.setState({ loaded: true, mine: mine ?? null, friends: friends ?? [] });
+  const [mine, friends, profile] = await Promise.all([kvGet<ShareState>('share'), kvGet<FriendRec[]>('friends'), kvGet<MyProfile>('shareProfile')]);
+  useShare.setState({ loaded: true, mine: mine ?? null, friends: friends ?? [], profile: profile ?? { name: '', bio: '' } });
 }
 
 export const stampOf = (s: ShareState) => PREFIX + s.manifestId;
@@ -156,7 +178,28 @@ export async function publishLibrary(): Promise<void> {
       await deleteFile(e.file).catch(() => undefined);
       delete st.shelfFiles![id];
     }
-    const manifest: ShareManifest = { v: 1, name: app.account.name || app.account.email, updated: Date.now(), shelves, books: entries };
+    const me = useShare.getState().profile;
+    const profile: ShareProfile = { n: me.name.trim() || app.account.name || app.account.email };
+    if (me.bio.trim()) profile.b = me.bio.trim().slice(0, 200);
+    if (me.avatar) {
+      const sig = `${me.avatar.size}`;
+      if (st.avatar && st.avatar.sig === sig) profile.a = st.avatar.file;
+      else {
+        try {
+          if (st.avatar) await deleteFile(st.avatar.file).catch(() => undefined);
+          const file = await uploadFile('avatar.jpg', me.avatar, 'image/jpeg', { k: 'savatar', h: 'me', g: sig }, '', undefined, undefined, st.folderId);
+          await makePublic(file);
+          st.avatar = { sig, file };
+          profile.a = file;
+        } catch {
+          /* the profile is shown without its picture */
+        }
+      }
+    } else if (st.avatar) {
+      await deleteFile(st.avatar.file).catch(() => undefined);
+      delete st.avatar;
+    }
+    const manifest: ShareManifest = { v: 1, name: profile.n, profile, updated: Date.now(), shelves, books: entries };
     const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
     if (st.manifestId) {
       await uploadFile('manifest.json', blob, 'application/json', { k: 'smanifest' }, '', undefined, st.manifestId);
@@ -219,6 +262,7 @@ export async function restoreShare(): Promise<boolean> {
       if (f.props.k === 'sbook') st.files[h] = { ...(st.files[h] ?? {}), file: f.id };
       else if (f.props.k === 'scover') st.files[h] = { ...(st.files[h] ?? { file: '' }), cover: f.id };
       else if (f.props.k === 'sshelf') st.shelfFiles![h] = { sig: f.props.g ?? '', file: f.id };
+      else if (f.props.k === 'savatar') st.avatar = { sig: f.props.g ?? '', file: f.id };
     }
     for (const h of Object.keys(st.files)) if (!st.files[h].file) delete st.files[h];
     await persistMine(st);
@@ -269,7 +313,8 @@ export async function addFriend(input: string): Promise<FriendRec> {
   const id = parseStamp(input);
   if (!id) throw new Error('bad-stamp');
   const m = await loadManifest(id, true);
-  const rec: FriendRec = { id, name: m.name || '', count: m.books.length, addedAt: Date.now() };
+  const old = useShare.getState().friends.find((f) => f.id === id);
+  const rec: FriendRec = { ...(old ?? {}), id, name: m.profile?.n || m.name || '', count: m.books.length, addedAt: old?.addedAt ?? Date.now() };
   const list = [rec, ...useShare.getState().friends.filter((f) => f.id !== id)];
   useShare.setState({ friends: list });
   await kvSet('friends', list);
@@ -290,6 +335,83 @@ export async function removeFriend(id: string): Promise<void> {
   await kvSet('friends', list);
   manifests.delete(id);
   void kvSet('fm:' + id, undefined).catch(() => undefined);
+}
+
+/* ---------- my profile ---------- */
+
+/** Crops a picture to a centred square and shrinks it (profile pictures are small). */
+export async function squareJpeg(source: Blob, size = 320): Promise<Blob | undefined> {
+  try {
+    const bmp = await createImageBitmap(source);
+    const side = Math.min(bmp.width, bmp.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = Math.min(size, side);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+    ctx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, canvas.width, canvas.height);
+    bmp.close?.();
+    return await new Promise<Blob | undefined>((res) => canvas.toBlob((b) => res(b ?? undefined), 'image/jpeg', 0.88));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Saves my profile; when the library is already shared the page is updated right away. */
+export async function saveProfile(p: MyProfile): Promise<void> {
+  useShare.setState({ profile: p });
+  await kvSet('shareProfile', p);
+  const mine = useShare.getState().mine;
+  if (mine) await publishLibrary();
+  else useApp.getState().toast('profile.saved', 'success');
+}
+
+/* ---------- follow + shelf notifications ---------- */
+
+async function saveFriends(list: FriendRec[]) {
+  useShare.setState({ friends: list });
+  await kvSet('friends', list);
+}
+const patchFriend = (id: string, patch: Partial<FriendRec>) => saveFriends(useShare.getState().friends.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+
+/** Opens a profile from its code / link: remembers it and goes there. */
+export async function openProfileByCode(code: string): Promise<void> {
+  const app = useApp.getState();
+  try {
+    const rec = await addFriend(code);
+    app.navigate({ name: 'friend', id: rec.id });
+  } catch (e) {
+    const m = msg(e);
+    if (m === 'bad-stamp') app.toast('friends.bad', 'error');
+    else app.toast('friends.fail', 'error', { msg: m });
+  }
+}
+
+export async function setFollowing(id: string, on: boolean): Promise<void> {
+  if (!useShare.getState().friends.some((f) => f.id === id)) {
+    const m = manifests.get(id);
+    if (!m) return;
+    await saveFriends([{ id, name: m.profile?.n || m.name || '', count: m.books.length, addedAt: Date.now() }, ...useShare.getState().friends]);
+  }
+  if (!on) {
+    await runnerSend('unwatch', { friend: id });
+    await patchFriend(id, { following: false, watch: [] });
+  } else await patchFriend(id, { following: true });
+}
+
+/** Bell on a shelf: new books on it will notify me. Returns false when the device could not be set up. */
+export async function toggleWatch(friendId: string, shelf: { id: string; name: string }, on: boolean): Promise<boolean> {
+  const m = manifests.get(friendId);
+  const rec = useShare.getState().friends.find((f) => f.id === friendId);
+  if (!m || !rec) return false;
+  if (on) await askNotifyPermission();
+  const seen = on ? m.books.filter((b) => b.sh === shelf.id).map((b) => b.h) : null;
+  const r = await runnerSend('watchSet', { friend: friendId, fname: m.profile?.n || m.name || rec.name, shelf: shelf.id, sname: shelf.name, seen });
+  if (!r.ok) return false;
+  const cur = new Set(rec.watch ?? []);
+  if (on) cur.add(shelf.id);
+  else cur.delete(shelf.id);
+  await patchFriend(friendId, { watch: [...cur] });
+  return true;
 }
 
 /* ---------- covers (a few at a time) ---------- */

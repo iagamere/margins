@@ -53,12 +53,24 @@ LINK_FILTERS = r"""
             </intent-filter>
 """
 
+# margins://u/<stamp> opens a profile
+PROFILE_FILTER = r"""
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="margins" android:host="u" />
+            </intent-filter>
+"""
+
 def manifest(s):
     if "windowSoftInputMode" not in s:
         s = s.replace("<activity", '<activity\n            android:windowSoftInputMode="adjustResize"', 1)
     # Margins offers itself for Google Drive book links ("Open with") and for shared links (Telegram: Share).
     if "drive.usercontent.google.com" not in s:
         s = s.replace("</activity>", LINK_FILTERS + "        </activity>", 1)
+    if 'android:scheme="margins"' not in s:
+        s = s.replace("</activity>", PROFILE_FILTER + "        </activity>", 1)
     return s
 
 patch("app/src/main/AndroidManifest.xml", manifest)
